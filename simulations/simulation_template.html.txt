@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — OFFICIAL SIMULATION REFERENCE TEMPLATE
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME Human Interface Guidelines)
+     ICONS: Lucide SVG Vector Icons (Inline, Zero-Dependency, Crisp on all OS)
+     PHYSICS ENGINE: Refresh-Rate Invariant Fixed-Timestep Sub-Stepping (60Hz/90Hz/120Hz/144Hz/240Hz)
+     
+     ═════════════════════════════════════════════════════════════════════════
+     INSTRUCTIONS FOR AI MODELS (GEMINI / CLAUDE / CHATGPT / CODEX):
+     ═════════════════════════════════════════════════════════════════════════
+     1. DO NOT ALTER THE CSS THEME OR DESIGN SYSTEM:
+        - Preserve all CSS custom properties (:root and body.light-theme) exactly as defined.
+        - Preserve the 2-column layout (.sim-layout, .controls-panel, .canvas-container).
+        - Use .adw-action-row for parameter sliders with 6px .adw-scale-slider tracks and white circular thumbs.
+        - Keep updateSliderFill(slider) & updateAllSliderFills() intact to dynamically highlight active slider tracks in Adwaita Blue.
+        - Use inline Lucide SVG vector icons (.lucide-icon) for all buttons, toggles, badges, and tool cards (NEVER use raw OS emojis).
+        - Use .adw-stepper-capsule with .adw-stepper-btn for numerical increments.
+        - Use .adw-view-switcher for mode switching.
+        - Use .adw-switch for sliding toggle switches.
+        - Keep the teaching tools bottom dock (.teaching-tools-dock) collapsed by default.
+
+     2. MANDATORY CANVAS STAGE CARTESIAN GRID:
+        - Always render a subtle Cartesian coordinate grid reticle in apparatus world coordinates:
+          gridStep = 40; ctx.strokeStyle = isLightTheme ? '#f0f0f0' : '#333333'; ctx.lineWidth = 1 / zoomScale;
+
+     3. REFRESH-RATE INDEPENDENT BACKGROUND PHYSICS WORKER:
+        - Decouple physics from display refresh rates using a fixed delta-time accumulator:
+          let accumulator = 0; const FIXED_DT = 0.004; // 250 Hz physics stepping
+          let dt_real = (performance.now() - lastTickTime) / 1000;
+          accumulator += dt_real * speedMultiplier;
+          while (accumulator >= FIXED_DT) { integrateODE(FIXED_DT); accumulator -= FIXED_DT; }
+        - This guarantees 1 simulation second ALWAYS equals 1 real wall-clock second on 60Hz, 90Hz, 120Hz ProMotion, and 240Hz screens.
+
+     4. MEMORY SAFETY & TOUCH/MOUSE ZOOM & PAN:
+        - Enforce Memory Safety: keep all history ring buffers capped at max 200 points with .shift().
+        - Maintain Canvas Zoom & Pan matrix (Ctrl+Wheel, pinch, drag pan, double-click reset) on .canvas-container.
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physics Simulation Template</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* =========================================================================
+       GTK4 / LIBADWAITA GNOME 45+ HIG DESIGN TOKENS
+       ========================================================================= */
+    :root {
+      /* Adwaita Dark (Default) */
+      --adw-window-bg: #242424;
+      --adw-sidebar-bg: #303030;
+      --adw-sidebar-border: rgba(255, 255, 255, 0.08);
+      --adw-card-bg: #383838;
+      --adw-card-border: rgba(255, 255, 255, 0.05);
+      --adw-text-color: #ffffff;
+      --adw-subtitle-color: #9a9996;
+      --adw-accent-color: #3584e4;
+      --adw-accent-badge-bg: rgba(53, 132, 228, 0.2);
+      --adw-accent-badge-text: #62a0ea;
+      --adw-success-color: #2ec27e;
+      --adw-warning-color: #f6d32d;
+      --adw-scale-track-bg: #484848;
+      --adw-scale-track-fill: #3584e4;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      --adw-stepper-bg: #484848;
+      --adw-stepper-text: #ffffff;
+      --adw-btn-primary-bg: #3584e4;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #3e3e3e;
+      --adw-btn-sec-text: #ffffff;
+      --adw-btn-sec-hover: #4a4a4a;
+      --adw-switch-bg: #484848;
+      --adw-switch-active: #3584e4;
+      --adw-canvas-bg: #242424;
+      --adw-canvas-border: rgba(255, 255, 255, 0.08);
+      --adw-grid-color: #333333;
+      --adw-axis-color: #5e5c64;
+      --adw-hud-card-bg: rgba(48, 48, 48, 0.94);
+      --adw-hud-card-border: rgba(255, 255, 255, 0.1);
+    }
+
+    body.light-theme {
+      /* Adwaita Light */
+      --adw-window-bg: #fafafa;
+      --adw-sidebar-bg: #ebebeb;
+      --adw-sidebar-border: #deddda;
+      --adw-card-bg: #ffffff;
+      --adw-card-border: #deddda;
+      --adw-text-color: #2e3436;
+      --adw-subtitle-color: #77767b;
+      --adw-accent-color: #1c71d8;
+      --adw-accent-badge-bg: rgba(28, 113, 216, 0.12);
+      --adw-accent-badge-text: #1c71d8;
+      --adw-success-color: #26a269;
+      --adw-warning-color: #e5a50a;
+      --adw-scale-track-bg: #deddda;
+      --adw-scale-track-fill: #1c71d8;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      --adw-stepper-bg: #deddda;
+      --adw-stepper-text: #2e3436;
+      --adw-btn-primary-bg: #1c71d8;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #deddda;
+      --adw-btn-sec-text: #2e3436;
+      --adw-btn-sec-hover: #cfcecb;
+      --adw-switch-bg: #deddda;
+      --adw-switch-active: #1c71d8;
+      --adw-canvas-bg: #ffffff;
+      --adw-canvas-border: #deddda;
+      --adw-grid-color: #f0f0f0;
+      --adw-axis-color: #c0bfbc;
+      --adw-hud-card-bg: rgba(255, 255, 255, 0.96);
+      --adw-hud-card-border: #deddda;
+    }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Cantarell", "Ubuntu", "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      background-color: var(--adw-window-bg); color: var(--adw-text-color);
+      user-select: none; transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .sim-layout {
+      display: flex; width: 100%; height: 100%; gap: 10px; padding: 10px;
+      box-sizing: border-box;
+    }
+
+    /* LUCIDE SVG ICON BASE */
+    .lucide-icon {
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
+      stroke: currentColor; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* CONTROLS PANEL WITH SLIM SCROLLBAR */
+    .controls-panel {
+      width: 270px; min-width: 270px; max-width: 270px; flex: 0 0 270px; height: 100%; display: flex; flex-direction: column;
+      gap: 7px; background: var(--adw-sidebar-bg); border: 1px solid var(--adw-sidebar-border);
+      border-radius: 0; padding: 10px; padding-bottom: 24px;
+      overflow-y: auto; overflow-x: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      scrollbar-width: thin;
+      scrollbar-color: var(--adw-stepper-bg) transparent;
+    }
+
+    .controls-panel::-webkit-scrollbar { width: 6px; }
+    .controls-panel::-webkit-scrollbar-track { background: transparent; }
+    .controls-panel::-webkit-scrollbar-thumb { background: var(--adw-stepper-bg); border-radius: 0; }
+    .controls-panel::-webkit-scrollbar-thumb:hover { background: var(--adw-btn-sec-hover); }
+
+    /* GTK4 RESIZABLE PANE SPLITTER */
+    .adw-pane-splitter {
+      width: 6px; flex: 0 0 6px; height: 100%; cursor: col-resize;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      user-select: none; touch-action: none; z-index: 20;
+      border-radius: 0; transition: background-color 0.15s ease;
+    }
+    .adw-pane-splitter:hover, .adw-pane-splitter.dragging {
+      background-color: var(--adw-accent-badge-bg);
+    }
+    .adw-pane-splitter::after {
+      content: ""; width: 2px; height: 32px; border-radius: 0;
+      background-color: var(--adw-axis-color); transition: background-color 0.15s ease, height 0.15s ease;
+    }
+    .adw-pane-splitter:hover::after, .adw-pane-splitter.dragging::after {
+      background-color: var(--adw-accent-color); height: 48px;
+    }
+
+    /* 1. HEADERBAR */
+    .adw-header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--adw-card-border); padding-bottom: 6px; margin-bottom: 2px;
+    }
+    .adw-header-title-box { display: flex; flex-direction: column; gap: 1px; }
+    .adw-header-title { font-size: 13.5px; font-weight: 700; color: var(--adw-accent-color); }
+    .adw-header-subtitle { font-size: 10px; font-weight: 500; color: var(--adw-subtitle-color); }
+    
+    .adw-theme-toggle-btn {
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border); color: var(--adw-text-color);
+      font-size: 11px; padding: 4px 8px; border-radius: 0; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+      transition: all 0.15s ease;
+    }
+    .adw-theme-toggle-btn:hover { background: var(--adw-btn-sec-hover); border-color: var(--adw-accent-color); }
+
+    /* 2. ADWVIEWSWITCHER (SEGMENTED TABS) */
+    .adw-view-switcher {
+      display: flex; background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0; padding: 2px; gap: 2px;
+    }
+    .adw-view-btn {
+      flex: 1; background: transparent; border: none; color: var(--adw-subtitle-color);
+      font-size: 10.5px; font-weight: 600; padding: 4px 6px; border-radius: 0;
+      cursor: pointer; transition: all 0.15s ease; text-align: center;
+    }
+    .adw-view-btn.active {
+      background: var(--adw-accent-color); color: #ffffff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2); font-weight: 700;
+    }
+
+    /* 3. PLAYBACK DECK */
+    .adw-deck-card {
+      display: flex; flex-direction: column; gap: 6px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0; padding: 7px 9px;
+    }
+    .deck-action-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .adw-btn-pill-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    
+    button.adw-btn {
+      background: var(--adw-btn-sec-bg); color: var(--adw-btn-sec-text); border: none;
+      padding: 5px 8px; font-size: 10.5px; font-weight: 600; border-radius: 0; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease;
+    }
+    button.adw-btn:hover { background: var(--adw-btn-sec-hover); }
+    button.adw-btn.primary { background: var(--adw-btn-primary-bg); color: var(--adw-btn-primary-text); }
+    button.adw-btn.restart-pill {
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-color);
+      border: 1px solid rgba(53, 132, 228, 0.3);
+    }
+    button.adw-btn.restart-pill:hover { background: var(--adw-accent-color); color: #ffffff; }
+
+    /* SPEED CONTROLS */
+    .speed-unit { display: flex; flex-direction: column; gap: 3px; }
+    .speed-presets-row { display: flex; gap: 3px; justify-content: flex-end; }
+    .speed-preset-btn {
+      background: transparent; border: 1px solid var(--adw-sidebar-border); color: var(--adw-subtitle-color);
+      font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 0; cursor: pointer;
+    }
+    .speed-preset-btn.active { background: var(--adw-accent-color); color: #ffffff; border-color: var(--adw-accent-color); }
+
+    /* 4. ADWACTIONROW LIST CARDS */
+    .adw-action-row {
+      display: flex; flex-direction: column; gap: 3px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0; padding: 6px 9px; transition: all 0.15s ease;
+    }
+    .adw-row-header {
+      display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 500;
+    }
+    .adw-row-title-desc { display: flex; flex-direction: column; gap: 1px; }
+    .adw-row-subtitle { font-size: 9.5px; color: var(--adw-subtitle-color); font-weight: 400; }
+    .adw-value-badge {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", ui-monospace, monospace;
+      font-size: 10.5px; font-weight: 700; color: var(--adw-accent-badge-text);
+      background: var(--adw-accent-badge-bg); padding: 1px 6px; border-radius: 0;
+    }
+
+    /* GTKSCALE SLIDERS WITH ACTIVE TRACK HIGHLIGHT */
+    .adw-scale-slider {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 0;
+      background: var(--adw-scale-track-bg); outline: none; cursor: pointer; margin-top: 3px;
+      transition: background 0.05s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 17px; height: 17px; border-radius: 0;
+      background: var(--adw-scale-thumb-bg); box-shadow: var(--adw-scale-thumb-shadow);
+      cursor: pointer; transition: transform 0.1s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    .adw-scale-slider::-moz-range-progress {
+      background-color: var(--adw-scale-track-fill); height: 6px; border-radius: 0;
+    }
+    .adw-scale-slider::-moz-range-track {
+      background-color: var(--adw-scale-track-bg); height: 6px; border-radius: 0;
+    }
+
+    /* GTKSPINBUTTON STEPPER CAPSULE */
+    .adw-stepper-capsule {
+      display: flex; align-items: center; gap: 4px; margin-top: 3px;
+    }
+    .adw-stepper-btn {
+      width: 22px; height: 22px; background: var(--adw-stepper-bg); color: var(--adw-text-color);
+      border: none; border-radius: 0; font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .adw-stepper-btn:hover { background: var(--adw-btn-sec-hover); }
+    .adw-stepper-capsule input[type=range] { flex: 1; }
+
+    /* GTKSWITCH TOGGLES */
+    .adw-switch-item {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10.5px; font-weight: 500;
+    }
+    .adw-switch {
+      position: relative; display: inline-block; width: 30px; height: 17px; flex-shrink: 0;
+    }
+    .adw-switch input { opacity: 0; width: 0; height: 0; }
+    .adw-switch-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--adw-switch-bg); transition: .2s; border-radius: 0;
+    }
+    .adw-switch-slider:before {
+      position: absolute; content: ""; height: 13px; width: 13px; left: 2px; bottom: 2px;
+      background-color: white; transition: .2s; border-radius: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    input:checked + .adw-switch-slider { background-color: var(--adw-switch-active); }
+    input:checked + .adw-switch-slider:before { transform: translateX(13px); }
+
+    /* 5. CANVAS STAGE */
+    .canvas-container {
+      flex: 1; height: 100%; min-width: 0; min-height: 0; position: relative;
+      background: var(--adw-canvas-bg); border: 1px solid var(--adw-canvas-border);
+      border-radius: 0; overflow: hidden; transition: background 0.2s ease, border-color 0.2s ease;
+      touch-action: none; cursor: grab;
+    }
+    .canvas-container.panning { cursor: grabbing; }
+    canvas#simCanvas { width: 100%; height: 100%; display: block; }
+
+    /* FLOATING CANVAS ZOOM BADGE */
+    .canvas-zoom-badge {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0; padding: 4px 8px; font-size: 10px; font-weight: 600;
+      color: var(--adw-accent-color); display: inline-flex; align-items: center; gap: 5px;
+      cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      transition: opacity 0.2s ease; user-select: none;
+    }
+    .zoom-reset-mini-btn { background: transparent; border: none; color: var(--adw-subtitle-color); font-size: 11px; cursor: pointer; padding: 0; display: flex; align-items: center; }
+
+    /* TEACHING INSTRUMENTS TOOLBAR (BOTTOM DOCK) */
+    .teaching-tools-dock {
+      position: absolute; bottom: 10px; left: 10px; right: 10px; z-index: 10;
+      display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none;
+    }
+    .dock-pill {
+      pointer-events: auto;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border); color: var(--adw-text-color);
+      font-size: 10px; font-weight: 600; padding: 4px 9px; border-radius: 0;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      backdrop-filter: blur(8px); box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      transition: all 0.15s ease;
+    }
+    .dock-pill:hover, .dock-pill.active {
+      border-color: var(--adw-accent-color); color: var(--adw-accent-color);
+      background: var(--adw-sidebar-bg);
+    }
+
+    /* FLOATING MODULAR TEACHING CARDS */
+    .floating-tool-card {
+      position: absolute; z-index: 15;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0; padding: 8px 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px); display: none; flex-direction: column; gap: 5px;
+      user-select: none;
+    }
+    .floating-tool-card.open { display: flex; }
+    .card-header-bar {
+      display: flex; justify-content: space-between; align-items: center; cursor: move;
+      border-bottom: 1px solid var(--adw-card-border); padding-bottom: 4px; margin-bottom: 2px;
+    }
+    .card-title { font-size: 11px; font-weight: 700; color: var(--adw-accent-color); display: flex; align-items: center; gap: 5px; }
+    .card-close-btn { background: transparent; border: none; color: var(--adw-subtitle-color); font-size: 12px; cursor: pointer; display: flex; align-items: center; }
+
+    #cornerGraphWidget { bottom: 42px; right: 10px; width: 240px; }
+
+    @media (max-width: 600px) {
+      .sim-layout { flex-direction: column; }
+      .controls-panel { width: 100%; min-width: 100%; max-width: 100%; flex: 0 0 auto; height: auto; max-height: 48%; }
+      .adw-pane-splitter { display: none; }
+    }
+  </style>
+</head>
+<body class="light-theme">
+  <div class="sim-layout">
+    <div class="controls-panel">
+      <div class="adw-header-bar">
+        <div class="adw-header-title-box">
+          <div class="adw-header-title" id="simTitle">Physics Simulation</div>
+          <div class="adw-header-subtitle" id="simSubtitle">Interactive Laboratory</div>
+        </div>
+        <button id="themeToggleBtn" class="adw-theme-toggle-btn" onclick="toggleTheme()" title="Switch Light / Dark Theme">
+          <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </div>
+
+      <div class="adw-view-switcher">
+        <button class="adw-view-btn active" id="segPrimary" onclick="setMode('primary', this)">Primary Lab</button>
+        <button class="adw-view-btn" id="segPhase" onclick="setMode('phase', this)">State Space</button>
+      </div>
+
+      <div class="adw-deck-card">
+        <div class="deck-action-row">
+          <div class="adw-btn-pill-group">
+            <button id="playBtn" class="adw-btn primary" onclick="togglePlay()">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span>Play</span>
+            </button>
+            <button id="restartBtn" class="adw-btn restart-pill" onclick="restartSim()">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Restart</span>
+            </button>
+            <button class="adw-btn" onclick="resetToDefaults()">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              <span>Defaults</span>
+            </button>
+          </div>
+          <button id="loopBtn" class="adw-chip-btn active" onclick="toggleLoop()">
+            <svg class="lucide-icon" width="11" height="11" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+            <span>Loop</span>
+          </button>
+        </div>
+        <div class="speed-unit">
+          <div class="adw-row-header">
+            <span style="font-size:10.5px;color:var(--adw-subtitle-color);font-weight:500;">Speed:</span>
+            <span id="speedVal" class="adw-value-badge">1.00x</span>
+          </div>
+          <input type="range" id="speedSlider" class="adw-scale-slider" min="0.1" max="3.0" step="0.05" value="1.0" oninput="setSpeed(this.value)">
+        </div>
+      </div>
+
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Parameter 1</span>
+            <span class="adw-row-subtitle">Primary physical quantity</span>
+          </div>
+          <span id="p1Val" class="adw-value-badge">1.00</span>
+        </div>
+        <input type="range" id="p1Slider" class="adw-scale-slider" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateParams()">
+      </div>
+
+      <div class="adw-action-row">
+        <div class="adw-switch-item">
+          <span>Motion Trace</span>
+          <label class="adw-switch">
+            <input type="checkbox" id="showTrace" checked>
+            <span class="adw-switch-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAGGABLE RESIZABLE SIDEBAR SPLITTER -->
+    <div class="adw-pane-splitter" id="paneSplitter" title="Drag to resize sidebar (Double-click to reset)"></div>
+
+    <div class="canvas-container" id="canvasStageContainer">
+      <canvas id="simCanvas"></canvas>
+
+      <div id="canvasZoomBadge" class="canvas-zoom-badge" onclick="resetCanvasZoom()" title="Double-click canvas to reset zoom (100%)">
+        <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+        <span id="zoomPercentText">100%</span>
+        <button class="zoom-reset-mini-btn">
+          <svg class="lucide-icon" width="11" height="11" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+
+      <div id="cornerGraphWidget" class="floating-tool-card">
+        <div class="card-header-bar">
+          <div class="card-title">
+            <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Live Kinematic Wave</span>
+          </div>
+          <button class="card-close-btn" onclick="toggleTool('cornerGraph')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+          </button>
+        </div>
+        <canvas id="miniGraphCanvas" width="220" height="85" style="width:100%;height:85px;display:block;border-radius: 0;background:rgba(0,0,0,0.2);"></canvas>
+      </div>
+
+      <div class="teaching-tools-dock">
+        <button id="pillCornerGraph" class="dock-pill" onclick="toggleTool('cornerGraph')">
+          <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>θ(t) Graph</span>
+        </button>
+        <button id="pillRuler" class="dock-pill" onclick="toggleRuler()">
+          <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/></svg>
+          <span>Ruler</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. HOST DEVICE TELEMETRY BRIDGE ---
+    let hostDpr = window.devicePixelRatio || 1;
+    window.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === 'HOST_FRAME_DATA') {
+        if (e.data.device && e.data.device.dpr) { hostDpr = e.data.device.dpr; resizeCanvas(); }
+        if (e.data.theme) {
+          isLightTheme = (e.data.theme === 'light');
+          document.body.classList.toggle('light-theme', isLightTheme);
+          updateThemeIcon();
+          updateAllSliderFills();
+        }
+      }
+    });
+
+    // --- 2. WEBGPU ACCELERATION PIPELINE (PROGRESSIVE ENHANCEMENT WITH FALLBACK) ---
+    let isWebGPUSupported = false;
+    let gpuDevice = null;
+
+    async function initWebGPU() {
+      if (!navigator.gpu) return;
+      try {
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        if (!adapter) return;
+        gpuDevice = await adapter.requestDevice();
+        if (!gpuDevice) return;
+        isWebGPUSupported = true;
+      } catch (err) {
+        console.info('WebGPU optional initialization bypassed, using Canvas 2D engine.', err);
+      }
+    }
+    initWebGPU();
+
+    // --- 3. UI STATE & 1000 HZ VSYNC MICRO-STEPPING ENGINE ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const container = document.getElementById('canvasStageContainer');
+    let canvasWidth = 500; let canvasHeight = 320;
+    let isLightTheme = true; let isRunning = false; // Starts paused on initial load (Adwaita Light Mode Default)
+    let zoomScale = 1.0; let panOffset = { x: 0, y: 0 };
+    const toolStates = { cornerGraph: false, ruler: false };
+    const MAX_POINTS = 200;
+    let waveHistory = [];
+
+    // Physics parameters & state
+    let p1 = 1.0;
+    let speedMultiplier = 1.0;
+    let state = 0;
+    let simTime = 0;
+    let physicsAccumulator = 0;
+    let lastFrameTime = performance.now();
+    const MICRO_DT = 0.001; // 1 ms micro-steps (1000 Hz exact symplectic integration)
+
+    let liveState = { time: 0, state: 0 };
+
+    // --- ZERO-OVERHEAD SLIDER ACTIVE TRACK HIGHLIGHT (O(1)) ---
+    function updateSliderFill(slider) {
+      if (!slider) return;
+      const min = parseFloat(slider.min || 0);
+      const max = parseFloat(slider.max || 100);
+      const val = parseFloat(slider.value);
+      const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+      slider.style.background = `linear-gradient(to right, var(--adw-scale-track-fill) 0%, var(--adw-scale-track-fill) ${pct}%, var(--adw-scale-track-bg) ${pct}%, var(--adw-scale-track-bg) 100%)`;
+    }
+
+    function updateAllSliderFills() {
+      document.querySelectorAll('.adw-scale-slider').forEach(updateSliderFill);
+    }
+
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      btn.innerHTML = isLightTheme 
+        ? `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`
+        : `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+    }
+
+    function toggleTheme() {
+      isLightTheme = !isLightTheme;
+      document.body.classList.toggle('light-theme', isLightTheme);
+      updateThemeIcon();
+      updateAllSliderFills();
+    }
+
+    function togglePlay() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('playBtn');
+      if (btn) {
+        btn.innerHTML = isRunning
+          ? `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg><span>Pause</span>`
+          : `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg><span>Play</span>`;
+      }
+      lastFrameTime = performance.now();
+    }
+
+    function restartSim() {
+      state = 0;
+      simTime = 0;
+      physicsAccumulator = 0;
+      lastFrameTime = performance.now();
+      waveHistory = [];
+    }
+
+    function resetToDefaults() {
+      document.getElementById('p1Slider').value = 1.0;
+      document.getElementById('speedSlider').value = 1.0;
+      p1 = 1.0;
+      speedMultiplier = 1.0;
+      updateParams();
+      restartSim();
+    }
+
+    function updateParams() {
+      p1 = parseFloat(document.getElementById('p1Slider').value);
+      document.getElementById('p1Val').innerText = p1.toFixed(2);
+      updateAllSliderFills();
+    }
+
+    function setSpeed(val) {
+      speedMultiplier = parseFloat(val);
+      document.getElementById('speedVal').innerText = speedMultiplier.toFixed(2) + 'x';
+      updateSliderFill(document.getElementById('speedSlider'));
+    }
+
+    function toggleTool(name) {
+      toolStates[name] = !toolStates[name];
+      const card = document.getElementById('cornerGraphWidget');
+      const pill = document.getElementById('pillCornerGraph');
+      if (card) card.classList.toggle('open', toolStates[name]);
+      if (pill) pill.classList.toggle('active', toolStates[name]);
+    }
+
+    function toggleRuler() {
+      toolStates.ruler = !toolStates.ruler;
+      document.getElementById('pillRuler')?.classList.toggle('active', toolStates.ruler);
+    }
+
+    function resetCanvasZoom() {
+      zoomScale = 1.0; panOffset = { x: 0, y: 0 };
+      document.getElementById('zoomPercentText').innerText = '100%';
+    }
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      canvasWidth = rect.width; canvasHeight = rect.height;
+      const dpr = hostDpr || window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvasWidth * dpr);
+      canvas.height = Math.round(canvasHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => resizeCanvas());
+      ro.observe(container);
+    } else {
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    // --- 4. 1000 HZ VSYNC MICRO-STEPPING INTEGRATION & HIGH-FPS RENDER LOOP ---
+    function draw() {
+      if (canvasWidth <= 0 || canvas.width === 0) {
+        resizeCanvas();
+      }
+
+      const now = performance.now();
+      let dt_real = (now - lastFrameTime) / 1000;
+      lastFrameTime = now;
+      if (dt_real > 0.1) dt_real = 0.1; // Safety clamp against background tab pause
+
+      // 1000 Hz VSync Micro-Stepping
+      if (isRunning) {
+        physicsAccumulator += dt_real * speedMultiplier;
+        while (physicsAccumulator >= MICRO_DT) {
+          // [TOPIC-SPECIFIC PHYSICS DIFFERENTIAL EQUATION INTEGRATION]
+          state = Math.sin(simTime * p1 * 2.0);
+          simTime += MICRO_DT;
+          physicsAccumulator -= MICRO_DT;
+        }
+
+        liveState = { time: simTime, state };
+        waveHistory.push({ t: simTime, val: state });
+        if (waveHistory.length > MAX_POINTS) waveHistory.shift();
+      }
+
+      ctx.fillStyle = isLightTheme ? '#ffffff' : '#242424';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // MANDATORY SUBTLE CARTESIAN GRID (STATIC SCREEN SPACE, SINGLE BATCHED PATH)
+      ctx.strokeStyle = isLightTheme ? '#f0f0f0' : '#333333';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x < canvasWidth; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvasHeight); }
+      for (let y = 0; y < canvasHeight; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvasWidth, y); }
+      ctx.stroke();
+
+      // Physical Apparatus Rendering (Layer 2: Zoom & Pan Matrix)
+      ctx.save();
+      ctx.translate(canvasWidth / 2 + panOffset.x, canvasHeight / 2 + panOffset.y);
+      ctx.scale(zoomScale, zoomScale);
+
+      ctx.fillStyle = isLightTheme ? '#1c71d8' : '#3584e4';
+      ctx.beginPath();
+      ctx.arc(liveState.state * 80, 0, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+      requestAnimationFrame(draw);
+    }
+
+    // --- RESIZABLE SIDEBAR SPLITTER LOGIC ---
+    const splitter = document.getElementById('paneSplitter');
+    const controlsPanel = document.querySelector('.controls-panel');
+    let isResizing = false;
+
+    if (splitter && controlsPanel) {
+      splitter.addEventListener('pointerdown', (e) => {
+        isResizing = true;
+        splitter.classList.add('dragging');
+        splitter.setPointerCapture(e.pointerId);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      splitter.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        const containerRect = document.querySelector('.sim-layout').getBoundingClientRect();
+        const newWidth = Math.max(200, Math.min(500, e.clientX - containerRect.left - 3));
+        controlsPanel.style.width = newWidth + 'px';
+        controlsPanel.style.minWidth = newWidth + 'px';
+        controlsPanel.style.maxWidth = newWidth + 'px';
+        controlsPanel.style.flex = `0 0 ${newWidth}px`;
+      });
+
+      const stopResize = (e) => {
+        if (!isResizing) return;
+        isResizing = false;
+        splitter.classList.remove('dragging');
+        try { splitter.releasePointerCapture(e.pointerId); } catch(err) {}
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      splitter.addEventListener('pointerup', stopResize);
+      splitter.addEventListener('pointercancel', stopResize);
+
+      splitter.addEventListener('dblclick', () => {
+        controlsPanel.style.width = '270px';
+        controlsPanel.style.minWidth = '270px';
+        controlsPanel.style.maxWidth = '270px';
+        controlsPanel.style.flex = '0 0 270px';
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      document.querySelectorAll('.adw-scale-slider').forEach(slider => {
+        slider.addEventListener('input', () => updateSliderFill(slider));
+      });
+      updateParams();
+      updateThemeIcon();
+      lastFrameTime = performance.now();
+      requestAnimationFrame(draw);
+    });
+  </script>
+</body>
+</html>

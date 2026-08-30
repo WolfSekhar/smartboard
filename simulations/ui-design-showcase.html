@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulation Sidebar UI Component Showcase — 10 Designs</title>
+  <style>
+    /* =========================================================================
+       GLOBAL RESET & WORKSPACE SHELL
+       ========================================================================= */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      background: #f1f5f9; color: #0f172a; user-select: none;
+    }
+    .app-viewport {
+      display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;
+    }
+
+    /* =========================================================================
+       TOP 10-DESIGN SELECTOR BAR
+       ========================================================================= */
+    .showcase-nav-bar {
+      flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e2e8f0;
+      padding: 8px 12px; display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;
+    }
+    .nav-brand-title {
+      font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-pill-carousel {
+      display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none;
+    }
+    .nav-pill-carousel::-webkit-scrollbar { display: none; }
+    .design-tab-btn {
+      background: #f8fafc; border: 1px solid #cbd5e1; color: #475569;
+      font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 20px;
+      cursor: pointer; white-space: nowrap; transition: all 0.15s ease;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .design-tab-btn:hover { background: #e2e8f0; color: #0f172a; }
+    .design-tab-btn.active {
+      background: #0284c7; color: #ffffff; border-color: #0284c7;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3); font-weight: 700;
+    }
+    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .badge-counter {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+      background: #e0f2fe; color: #0369a1;
+    }
+
+    /* DESIGN PHILOSOPHY INFO BANNER */
+    .design-info-bar {
+      flex-shrink: 0; background: #e2e8f0; border-bottom: 1px solid #cbd5e1;
+      padding: 5px 12px; font-size: 11px; color: #334155;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .design-info-text { font-weight: 500; display: flex; align-items: center; gap: 6px; }
+    .design-features-tag { font-size: 10px; font-weight: 600; color: #64748b; font-family: monospace; }
+
+    /* =========================================================================
+       SIMULATION WORKSPACE MAIN LAYOUT
+       ========================================================================= */
+    .sim-layout {
+      flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px;
+      box-sizing: border-box; overflow: hidden; position: relative;
+    }
+
+    /* SHARED CANVAS CONTAINER (UNCHANGED CORE STAGE) */
+    .canvas-container {
+      flex: 1; height: 100%; min-width: 0; min-height: 0; position: relative;
+      background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px;
+      overflow: hidden; touch-action: none; cursor: grab;
+    }
+    .canvas-container.panning { cursor: grabbing; }
+    canvas#simCanvas { width: 100%; height: 100%; display: block; }
+
+    /* LUCIDE SVG ICON BASE */
+    .lucide-icon {
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
+      stroke: currentColor; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* FLOATING CANVAS ZOOM BADGE */
+    .canvas-zoom-badge {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      background: rgba(255, 255, 255, 0.94); border: 1px solid #cbd5e1;
+      border-radius: 6px; padding: 3px 7px; font-size: 10px; font-weight: 600;
+      color: #0284c7; display: inline-flex; align-items: center; gap: 4px;
+      cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* FLOATING TEACHING INSTRUMENTS (BOTTOM DOCK) */
+    .teaching-tools-dock {
+      position: absolute; bottom: 10px; left: 10px; right: 10px; z-index: 10;
+      display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none;
+    }
+    .dock-pill {
+      pointer-events: auto; background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #cbd5e1; color: #0f172a; font-size: 10px; font-weight: 600;
+      padding: 4px 8px; border-radius: 6px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08); transition: all 0.15s ease;
+    }
+    .dock-pill:hover, .dock-pill.active {
+      border-color: #0284c7; color: #0284c7; background: #f0f9ff;
+    }
+
+    .floating-tool-card {
+      position: absolute; z-index: 15; background: rgba(255, 255, 255, 0.97);
+      border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15); display: none; flex-direction: column; gap: 4px;
+    }
+    .floating-tool-card.open { display: flex; }
+    .card-header-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; font-size: 11px; font-weight: 700;
+      color: #0284c7;
+    }
+    .card-close-btn { background: transparent; border: none; font-size: 12px; cursor: pointer; color: #64748b; }
+
+    #photogateCard { bottom: 42px; left: 10px; width: 210px; }
+    #formulaCard { top: 40px; right: 10px; width: 230px; }
+    #fbdCard { top: 90px; left: 10px; width: 180px; }
+
+    /* =========================================================================
+       THE 10 DISTINCT SIDEBAR COMPONENT DESIGN SYSTEMS (SCOPED)
+       ========================================================================= */
+
+    /* -------------------------------------------------------------------------
+       DESIGN 1: APPLE GLASS & INSET GROUPED (CUPERTINO)
+       ------------------------------------------------------------------------- */
+    .theme-apple-glass .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 7px;
+      background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(25px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 16px; padding: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06); overflow-y: auto; scrollbar-width: thin;
+    }
+    .theme-apple-glass .sim-header {
+      display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 6px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .theme-apple-glass .sim-title { font-size: 13.5px; font-weight: 700; color: #007aff; letter-spacing: -0.02em; }
+    .theme-apple-glass .sim-subtitle { font-size: 9.5px; font-weight: 500; color: #86868b; }
+    .theme-apple-glass .mode-tabs {
+      display: flex; background: rgba(0, 0, 0, 0.05); border-radius: 10px; padding: 2px; gap: 2px;
+    }
+    .theme-apple-glass .mode-btn {
+      flex: 1; border: none; background: transparent; padding: 4px; font-size: 10.5px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; color: #48484a; transition: all 0.15s ease;
+    }
+    .theme-apple-glass .mode-btn.active {
+      background: #ffffff; color: #000000; box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-weight: 700;
+    }
+    .theme-apple-glass .deck-card,
+    .theme-apple-glass .param-card {
+      background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.04);
+      border-radius: 12px; padding: 7px 10px; display: flex; flex-direction: column; gap: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .theme-apple-glass .row-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; color: #1c1c1e; }
+    .theme-apple-glass .badge { font-family: -apple-system, monospace; font-size: 10.5px; font-weight: 700; color: #007aff; background: rgba(0, 122, 255, 0.1); padding: 1px 6px; border-radius: 6px; }
+    .theme-apple-glass input[type=range] {
+      -webkit-appearance: none; width: 100%; height: 5px; border-radius: 5px; background: #e5e5ea; outline: none; margin-top: 3px;
+    }
+    .theme-apple-glass input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.25); cursor: pointer;
+    }
+    .theme-apple-glass .btn-primary {
+      background: #007aff; color: #ffffff; border: none; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .theme-apple-glass .btn-sec {
+      background: #f2f2f7; color: #1c1c1e; border: none; padding: 5px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 600; cursor: pointer;
+    }
+    .theme-apple-glass .ios-switch { position: relative; width: 32px; height: 18px; display: inline-block; }
+    .theme-apple-glass .ios-switch input { opacity: 0; width: 0; height: 0; }
+    .theme-apple-glass .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #e5e5ea; border-radius: 18px; transition: .2s; }
+    .theme-apple-glass .ios-slider:before { position: absolute; content:""; height: 14px; width: 14px; left: 2px; bottom: 2px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: .2s; }
+    .theme-apple-glass input:checked + .ios-slider { background: #34c759; }
+    .theme-apple-glass input:checked + .ios-slider:before { transform: translateX(14px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 2: LINEAR MINIMALIST MONOSPACE (HIGH-DENSITY TECH)
+       ------------------------------------------------------------------------- */
+    .theme-linear-minimal .controls-panel {
+      width: 260px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 5px;
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px;
+      font-family: ui-monospace, "SF Mono", monospace; overflow-y: auto;
+    }
+    .theme-linear-minimal .sim-header { border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+    .theme-linear-minimal .sim-title { font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; }
+    .theme-linear-minimal .sim-subtitle { font-size: 9px; color: #64748b; }
+    .theme-linear-minimal .mode-tabs { display: flex; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px; gap: 1px; }
+    .theme-linear-minimal .mode-btn { flex: 1; border: none; background: transparent; font-size: 10px; font-weight: 600; padding: 3px; border-radius: 3px; cursor: pointer; color: #64748b; }
+    .theme-linear-minimal .mode-btn.active { background: #0f172a; color: #ffffff; }
+    .theme-linear-minimal .deck-card,
+    .theme-linear-minimal .param-card {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .theme-linear-minimal .row-head { display: flex; justify-content: space-between; font-size: 10.5px; color: #334155; }
+    .theme-linear-minimal .badge { font-size: 10px; font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 1px 4px; border-radius: 2px; }
+    .theme-linear-minimal input[type=range] { -webkit-appearance: none; width: 100%; height: 3px; background: #cbd5e1; outline: none; border-radius: 1px; }
+    .theme-linear-minimal input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: #0f172a; border-radius: 1px; cursor: pointer; }
+    .theme-linear-minimal .btn-primary { background: #0f172a; color: #ffffff; border: 1px solid #0f172a; border-radius: 3px; font-size: 10px; font-weight: 600; padding: 4px 8px; cursor: pointer; }
+    .theme-linear-minimal .btn-sec { background: transparent; border: 1px solid #cbd5e1; color: #475569; border-radius: 3px; font-size: 9.5px; padding: 3px 6px; cursor: pointer; }
+    .theme-linear-minimal .ios-switch { position: relative; width: 28px; height: 15px; display: inline-block; }
+    .theme-linear-minimal .ios-switch input { opacity: 0; }
+    .theme-linear-minimal .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #cbd5e1; border-radius: 2px; }
+    .theme-linear-minimal .ios-slider:before { position: absolute; content:""; height: 11px; width: 11px; left: 2px; bottom: 2px; background: white; border-radius: 1px; transition: .15s; }
+    .theme-linear-minimal input:checked + .ios-slider { background: #0f172a; }
+    .theme-linear-minimal input:checked + .ios-slider:before { transform: translateX(13px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 3: PHYSICS LAB HARDWARE RACK (INSTRUMENT PANEL)
+       ------------------------------------------------------------------------- */
+    .theme-lab-rack .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 6px;
+      background: #e2e8f0; border: 2px solid #94a3b8; border-radius: 6px; padding: 8px;
+      box-shadow: inset 0 1px 3px rgba(255,255,255,0.8), 0 3px 8px rgba(0,0,0,0.15); overflow-y: auto;
+    }
+    .theme-lab-rack .sim-header {
+      background: #0f172a; color: #38bdf8; padding: 5px 8px; border-radius: 4px;
+      border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;
+    }
+    .theme-lab-rack .sim-title { font-family: monospace; font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; }
+    .theme-lab-rack .sim-subtitle { font-size: 9px; color: #94a3b8; font-family: sans-serif; }
+    .theme-lab-rack .deck-card,
+    .theme-lab-rack .param-card {
+      background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0284c7;
+      border-radius: 4px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px;
+    }
+    .theme-lab-rack .row-head { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: #1e293b; }
+    .theme-lab-rack .badge {
+      font-family: monospace; font-size: 11px; font-weight: 700; color: #0284c7; background: #0f172a;
+      padding: 2px 6px; border-radius: 3px; border: 1px solid #334155;
+    }
+    .theme-lab-rack input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #94a3b8; border-radius: 3px; outline: none; }
+    .theme-lab-rack input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; background: #0284c7; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.3); cursor: pointer;
+    }
+    .theme-lab-rack .btn-primary {
+      background: #0284c7; color: #ffffff; border: 1px solid #0369a1; border-radius: 4px; font-size: 10.5px; font-weight: 700; padding: 5px 8px; cursor: pointer; box-shadow: 0 2px 0 #0369a1;
+    }
+    .theme-lab-rack .btn-sec { background: #e2e8f0; border: 1px solid #94a3b8; color: #0f172a; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 4px 6px; cursor: pointer; }
+    .theme-lab-rack .ios-switch { position: relative; width: 30px; height: 16px; display: inline-block; }
+    .theme-lab-rack .ios-switch input { opacity: 0; }
+    .theme-lab-rack .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #94a3b8; border-radius: 3px; }
+    .theme-lab-rack .ios-slider:before { position: absolute; content:""; height: 12px; width: 12px; left: 2px; bottom: 2px; background: #f8fafc; border-radius: 2px; transition: .15s; }
+    .theme-lab-rack input:checked + .ios-slider { background: #16a34a; }
+    .theme-lab-rack input:checked + .ios-slider:before { transform: translateX(14px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 4: SCI-FI CYBERPUNK HUD (FUTURISTIC TELEMETRY)
+       ------------------------------------------------------------------------- */
+    .theme-scifi-hud .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 6px;
+      background: #0b1120; border: 1px solid #06b6d4; border-radius: 4px; padding: 8px;
+      color: #e0f2fe; box-shadow: 0 0 15px rgba(6, 182, 212, 0.15); overflow-y: auto;
+    }
+    .theme-scifi-hud .sim-header {
+      border-bottom: 1px dashed #06b6d4; padding-bottom: 4px; display: flex; justify-content: space-between;
+    }
+    .theme-scifi-hud .sim-title { font-size: 12px; font-weight: 800; color: #06b6d4; letter-spacing: 0.1em; text-transform: uppercase; font-family: monospace; }
+    .theme-scifi-hud .sim-subtitle { font-size: 8.5px; color: #67e8f9; font-family: monospace; }
+    .theme-scifi-hud .mode-tabs { display: flex; gap: 3px; }
+    .theme-scifi-hud .mode-btn {
+      flex: 1; border: 1px solid #0891b2; background: rgba(6, 182, 212, 0.1); color: #67e8f9;
+      font-size: 9.5px; font-weight: 700; padding: 3px; cursor: pointer; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    }
+    .theme-scifi-hud .mode-btn.active { background: #06b6d4; color: #082f49; font-weight: 900; }
+    .theme-scifi-hud .deck-card,
+    .theme-scifi-hud .param-card {
+      background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; position: relative;
+    }
+    .theme-scifi-hud .row-head { display: flex; justify-content: space-between; font-size: 10px; font-family: monospace; color: #a5f3fc; }
+    .theme-scifi-hud .badge { font-family: monospace; font-size: 10.5px; font-weight: 800; color: #06b6d4; background: rgba(6, 182, 212, 0.15); padding: 1px 5px; }
+    .theme-scifi-hud input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: #1e293b; outline: none; }
+    .theme-scifi-hud input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; background: #06b6d4; border-radius: 0; box-shadow: 0 0 8px #06b6d4; cursor: pointer;
+    }
+    .theme-scifi-hud .btn-primary {
+      background: #06b6d4; color: #082f49; border: none; font-size: 10.5px; font-weight: 900; padding: 5px 8px; cursor: pointer; text-transform: uppercase;
+    }
+    .theme-scifi-hud .btn-sec { background: rgba(6, 182, 212, 0.1); border: 1px solid #0891b2; color: #67e8f9; font-size: 9.5px; padding: 3px 6px; cursor: pointer; }
+    .theme-scifi-hud .ios-switch { position: relative; width: 30px; height: 15px; display: inline-block; }
+    .theme-scifi-hud .ios-switch input { opacity: 0; }
+    .theme-scifi-hud .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #1e293b; border: 1px solid #0891b2; }
+    .theme-scifi-hud .ios-slider:before { position: absolute; content:""; height: 11px; width: 11px; left: 1px; bottom: 1px; background: #06b6d4; transition: .15s; }
+    .theme-scifi-hud input:checked + .ios-slider { background: rgba(6, 182, 212, 0.3); }
+    .theme-scifi-hud input:checked + .ios-slider:before { transform: translateX(15px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 5: NEUMORPHIC SOFT TACTILE CLAY (3D EMBOSSED)
+       ------------------------------------------------------------------------- */
+    .theme-soft-neumorphic .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 8px;
+      background: #e6ecf5; border: none; border-radius: 18px; padding: 12px;
+      box-shadow: 8px 8px 16px #c4c9d0, -8px -8px 16px #ffffff; overflow-y: auto;
+    }
+    .theme-soft-neumorphic .sim-header { border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 6px; }
+    .theme-soft-neumorphic .sim-title { font-size: 13.5px; font-weight: 700; color: #3b82f6; }
+    .theme-soft-neumorphic .sim-subtitle { font-size: 10px; color: #64748b; }
+    .theme-soft-neumorphic .mode-tabs {
+      display: flex; background: #e6ecf5; border-radius: 12px; padding: 3px; gap: 4px;
+      box-shadow: inset 3px 3px 6px #c4c9d0, inset -3px -3px 6px #ffffff;
+    }
+    .theme-soft-neumorphic .mode-btn {
+      flex: 1; border: none; background: transparent; font-size: 10.5px; font-weight: 600; padding: 5px;
+      border-radius: 9px; cursor: pointer; color: #64748b;
+    }
+    .theme-soft-neumorphic .mode-btn.active {
+      background: #e6ecf5; color: #3b82f6; font-weight: 700;
+      box-shadow: 3px 3px 6px #c4c9d0, -3px -3px 6px #ffffff;
+    }
+    .theme-soft-neumorphic .deck-card,
+    .theme-soft-neumorphic .param-card {
+      background: #e6ecf5; border: none; border-radius: 14px; padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 4px;
+      box-shadow: 4px 4px 8px #c4c9d0, -4px -4px 8px #ffffff;
+    }
+    .theme-soft-neumorphic .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #334155; }
+    .theme-soft-neumorphic .badge {
+      font-size: 10.5px; font-weight: 700; color: #3b82f6; background: #e6ecf5; padding: 2px 7px; border-radius: 8px;
+      box-shadow: inset 2px 2px 4px #c4c9d0, inset -2px -2px 4px #ffffff;
+    }
+    .theme-soft-neumorphic input[type=range] {
+      -webkit-appearance: none; width: 100%; height: 7px; border-radius: 7px; background: #e6ecf5;
+      box-shadow: inset 2px 2px 4px #c4c9d0, inset -2px -2px 4px #ffffff; outline: none; margin-top: 3px;
+    }
+    .theme-soft-neumorphic input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%; background: #3b82f6;
+      box-shadow: 2px 2px 5px #c4c9d0, -2px -2px 5px #ffffff; cursor: pointer;
+    }
+    .theme-soft-neumorphic .btn-primary {
+      background: #e6ecf5; color: #3b82f6; border: none; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 6px 12px; cursor: pointer;
+      box-shadow: 3px 3px 6px #c4c9d0, -3px -3px 6px #ffffff;
+    }
+    .theme-soft-neumorphic .btn-sec {
+      background: #e6ecf5; color: #64748b; border: none; border-radius: 8px; font-size: 10px; font-weight: 600; padding: 5px 8px; cursor: pointer;
+      box-shadow: 2px 2px 4px #c4c9d0, -2px -2px 4px #ffffff;
+    }
+    .theme-soft-neumorphic .ios-switch { position: relative; width: 34px; height: 18px; display: inline-block; }
+    .theme-soft-neumorphic .ios-switch input { opacity: 0; }
+    .theme-soft-neumorphic .ios-slider {
+      position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #e6ecf5; border-radius: 18px;
+      box-shadow: inset 2px 2px 4px #c4c9d0, inset -2px -2px 4px #ffffff;
+    }
+    .theme-soft-neumorphic .ios-slider:before { position: absolute; content:""; height: 14px; width: 14px; left: 2px; bottom: 2px; background: #64748b; border-radius: 50%; transition: .2s; }
+    .theme-soft-neumorphic input:checked + .ios-slider:before { background: #3b82f6; transform: translateX(16px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 6: RETRO SYNTH / BAUHAUS TERMINAL (VINTAGE ANALOG)
+       ------------------------------------------------------------------------- */
+    .theme-retro-synth .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 7px;
+      background: #fef08a; border: 2.5px solid #000000; border-radius: 0px; padding: 10px;
+      box-shadow: 4px 4px 0px #000000; overflow-y: auto;
+    }
+    .theme-retro-synth .sim-header { border-bottom: 2px solid #000000; padding-bottom: 4px; }
+    .theme-retro-synth .sim-title { font-size: 13px; font-weight: 900; color: #000000; text-transform: uppercase; font-family: monospace; }
+    .theme-retro-synth .sim-subtitle { font-size: 9.5px; color: #000000; font-weight: 700; }
+    .theme-retro-synth .mode-tabs { display: flex; gap: 3px; }
+    .theme-retro-synth .mode-btn {
+      flex: 1; border: 2px solid #000000; background: #ffffff; font-size: 10px; font-weight: 800; padding: 3px; cursor: pointer;
+    }
+    .theme-retro-synth .mode-btn.active { background: #f97316; color: #ffffff; }
+    .theme-retro-synth .deck-card,
+    .theme-retro-synth .param-card {
+      background: #ffffff; border: 2px solid #000000; border-radius: 0px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px;
+      box-shadow: 2px 2px 0px #000000;
+    }
+    .theme-retro-synth .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: #000000; }
+    .theme-retro-synth .badge { font-family: monospace; font-size: 10.5px; font-weight: 800; color: #000000; background: #fde047; border: 1.5px solid #000; padding: 1px 5px; }
+    .theme-retro-synth input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; background: #e2e8f0; border: 1.5px solid #000; outline: none; }
+    .theme-retro-synth input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #f97316; border: 2px solid #000; cursor: pointer; }
+    .theme-retro-synth .btn-primary {
+      background: #f97316; color: #000000; border: 2px solid #000000; font-size: 11px; font-weight: 900; padding: 5px 8px; cursor: pointer; box-shadow: 2px 2px 0px #000;
+    }
+    .theme-retro-synth .btn-sec { background: #ffffff; border: 2px solid #000000; color: #000000; font-size: 10px; font-weight: 800; padding: 3px 6px; cursor: pointer; }
+    .theme-retro-synth .ios-switch { position: relative; width: 32px; height: 16px; display: inline-block; }
+    .theme-retro-synth .ios-switch input { opacity: 0; }
+    .theme-retro-synth .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #ffffff; border: 2px solid #000; }
+    .theme-retro-synth .ios-slider:before { position: absolute; content:""; height: 10px; width: 10px; left: 1px; bottom: 1px; background: #000000; transition: .15s; }
+    .theme-retro-synth input:checked + .ios-slider { background: #22c55e; }
+    .theme-retro-synth input:checked + .ios-slider:before { transform: translateX(16px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 7: FLOATING ISLAND MICRO-PILLS & DOCK (FLOATING MINIMAL)
+       ------------------------------------------------------------------------- */
+    .theme-floating-islands .controls-panel {
+      width: 265px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 8px;
+      background: transparent; border: none; padding: 4px; overflow-y: auto;
+    }
+    .theme-floating-islands .sim-header {
+      background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; justify-content: space-between;
+    }
+    .theme-floating-islands .sim-title { font-size: 13px; font-weight: 700; color: #6366f1; }
+    .theme-floating-islands .sim-subtitle { font-size: 9.5px; color: #64748b; }
+    .theme-floating-islands .mode-tabs { display: flex; gap: 4px; }
+    .theme-floating-islands .mode-btn {
+      flex: 1; border: 1px solid #cbd5e1; background: #ffffff; color: #64748b; font-size: 10.5px; font-weight: 600;
+      padding: 5px; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .theme-floating-islands .mode-btn.active { background: #6366f1; color: #ffffff; border-color: #6366f1; font-weight: 700; }
+    .theme-floating-islands .deck-card,
+    .theme-floating-islands .param-card {
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 4px; box-shadow: 0 3px 10px rgba(0,0,0,0.04);
+    }
+    .theme-floating-islands .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1e293b; }
+    .theme-floating-islands .badge { font-size: 10.5px; font-weight: 700; color: #6366f1; background: #eef2ff; padding: 1px 6px; border-radius: 10px; }
+    .theme-floating-islands input[type=range] { -webkit-appearance: none; width: 100%; height: 5px; border-radius: 5px; background: #e2e8f0; outline: none; }
+    .theme-floating-islands input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #6366f1; box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4); cursor: pointer;
+    }
+    .theme-floating-islands .btn-primary { background: #6366f1; color: #ffffff; border: none; border-radius: 20px; font-size: 11px; font-weight: 600; padding: 6px 12px; cursor: pointer; }
+    .theme-floating-islands .btn-sec { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; border-radius: 14px; font-size: 10px; padding: 4px 8px; cursor: pointer; }
+    .theme-floating-islands .ios-switch { position: relative; width: 32px; height: 18px; display: inline-block; }
+    .theme-floating-islands .ios-switch input { opacity: 0; }
+    .theme-floating-islands .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #e2e8f0; border-radius: 18px; }
+    .theme-floating-islands .ios-slider:before { position: absolute; content:""; height: 14px; width: 14px; left: 2px; bottom: 2px; background: white; border-radius: 50%; transition: .2s; }
+    .theme-floating-islands input:checked + .ios-slider { background: #6366f1; }
+    .theme-floating-islands input:checked + .ios-slider:before { transform: translateX(14px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 8: MATERIAL DESIGN 3 / EXPRESSIVE SQUIRCLES
+       ------------------------------------------------------------------------- */
+    .theme-material-you .controls-panel {
+      width: 275px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 7px;
+      background: #f7f2fa; border: 1px solid #e6e0e9; border-radius: 20px; padding: 10px; overflow-y: auto;
+    }
+    .theme-material-you .sim-header { border-bottom: 1px solid #cac4d0; padding-bottom: 5px; }
+    .theme-material-you .sim-title { font-size: 13.5px; font-weight: 700; color: #6750a4; }
+    .theme-material-you .sim-subtitle { font-size: 10px; color: #49454f; }
+    .theme-material-you .mode-tabs { display: flex; border: 1px solid #79747e; border-radius: 20px; overflow: hidden; }
+    .theme-material-you .mode-btn { flex: 1; border: none; background: transparent; font-size: 10.5px; font-weight: 600; padding: 5px; cursor: pointer; color: #49454f; }
+    .theme-material-you .mode-btn.active { background: #e8def8; color: #1d192b; font-weight: 700; }
+    .theme-material-you .deck-card,
+    .theme-material-you .param-card {
+      background: #ffffff; border: 1px solid #e6e0e9; border-radius: 16px; padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .theme-material-you .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #1d192b; }
+    .theme-material-you .badge { font-size: 10.5px; font-weight: 700; color: #6750a4; background: #e8def8; padding: 2px 7px; border-radius: 8px; }
+    .theme-material-you input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 8px; background: #e8def8; outline: none; margin-top: 3px; }
+    .theme-material-you input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6750a4; cursor: pointer;
+    }
+    .theme-material-you .btn-primary { background: #6750a4; color: #ffffff; border: none; border-radius: 20px; font-size: 11px; font-weight: 600; padding: 6px 12px; cursor: pointer; }
+    .theme-material-you .btn-sec { background: #e8def8; color: #1d192b; border: none; border-radius: 12px; font-size: 10px; font-weight: 600; padding: 4px 8px; cursor: pointer; }
+    .theme-material-you .ios-switch { position: relative; width: 34px; height: 18px; display: inline-block; }
+    .theme-material-you .ios-switch input { opacity: 0; }
+    .theme-material-you .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #e6e0e9; border: 2px solid #79747e; border-radius: 18px; }
+    .theme-material-you .ios-slider:before { position: absolute; content:""; height: 12px; width: 12px; left: 1px; bottom: 1px; background: #79747e; border-radius: 50%; transition: .2s; }
+    .theme-material-you input:checked + .ios-slider { background: #6750a4; border-color: #6750a4; }
+    .theme-material-you input:checked + .ios-slider:before { background: #ffffff; transform: translateX(16px); }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 9: SWISS BRUTALIST GRID & HIGH-CONTRAST MONOCHROME
+       ------------------------------------------------------------------------- */
+    .theme-swiss-brutalist .controls-panel {
+      width: 270px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 6px;
+      background: #ffffff; border-right: 3px solid #000000; padding: 8px; color: #000000; overflow-y: auto;
+    }
+    .theme-swiss-brutalist .sim-header { border-bottom: 3px solid #000000; padding-bottom: 4px; }
+    .theme-swiss-brutalist .sim-title { font-size: 14px; font-weight: 900; color: #000000; letter-spacing: -0.04em; text-transform: uppercase; }
+    .theme-swiss-brutalist .sim-subtitle { font-size: 9px; font-weight: 700; color: #000000; text-transform: uppercase; }
+    .theme-swiss-brutalist .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid #000000; }
+    .theme-swiss-brutalist .mode-btn { border: none; background: #ffffff; font-size: 10px; font-weight: 900; padding: 4px; cursor: pointer; text-transform: uppercase; }
+    .theme-swiss-brutalist .mode-btn.active { background: #000000; color: #ffffff; }
+    .theme-swiss-brutalist .deck-card,
+    .theme-swiss-brutalist .param-card {
+      border: 2px solid #000000; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px;
+    }
+    .theme-swiss-brutalist .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+    .theme-swiss-brutalist .badge { font-family: monospace; font-size: 11px; font-weight: 900; color: #ffffff; background: #ef4444; padding: 1px 5px; }
+    .theme-swiss-brutalist input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #000000; outline: none; }
+    .theme-swiss-brutalist input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; background: #ef4444; border: 2px solid #000000; border-radius: 0; cursor: pointer;
+    }
+    .theme-swiss-brutalist .btn-primary { background: #ef4444; color: #ffffff; border: 2px solid #000000; font-size: 11px; font-weight: 900; padding: 5px 8px; cursor: pointer; text-transform: uppercase; }
+    .theme-swiss-brutalist .btn-sec { background: #ffffff; border: 2px solid #000000; color: #000000; font-size: 10px; font-weight: 900; padding: 3px 6px; cursor: pointer; }
+    .theme-swiss-brutalist .ios-switch { position: relative; width: 30px; height: 16px; display: inline-block; }
+    .theme-swiss-brutalist .ios-switch input { opacity: 0; }
+    .theme-swiss-brutalist .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #ffffff; border: 2px solid #000000; }
+    .theme-swiss-brutalist .ios-slider:before { position: absolute; content:""; height: 10px; width: 10px; left: 1px; bottom: 1px; background: #000000; border-radius: 0; transition: .15s; }
+    .theme-swiss-brutalist input:checked + .ios-slider { background: #ef4444; }
+    .theme-swiss-brutalist input:checked + .ios-slider:before { transform: translateX(14px); background: #ffffff; }
+
+    /* -------------------------------------------------------------------------
+       DESIGN 10: NEXT-GEN GTK4 / LIBADWAITA REFINED
+       ------------------------------------------------------------------------- */
+    .theme-libadwaita-next .controls-panel {
+      width: 270px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; gap: 7px;
+      background: #ebebeb; border: 1px solid #deddda; border-radius: 12px; padding: 10px; overflow-y: auto;
+    }
+    .theme-libadwaita-next .sim-header { border-bottom: 1px solid #deddda; padding-bottom: 5px; display: flex; justify-content: space-between; }
+    .theme-libadwaita-next .sim-title { font-size: 13px; font-weight: 700; color: #1c71d8; }
+    .theme-libadwaita-next .sim-subtitle { font-size: 9.5px; color: #77767b; font-weight: 500; }
+    .theme-libadwaita-next .mode-tabs { display: flex; background: #ffffff; border: 1px solid #deddda; border-radius: 8px; padding: 2px; gap: 2px; }
+    .theme-libadwaita-next .mode-btn { flex: 1; border: none; background: transparent; font-size: 10.5px; font-weight: 600; padding: 4px; border-radius: 6px; cursor: pointer; color: #77767b; }
+    .theme-libadwaita-next .mode-btn.active { background: #1c71d8; color: #ffffff; font-weight: 700; }
+    .theme-libadwaita-next .deck-card,
+    .theme-libadwaita-next .param-card {
+      background: #ffffff; border: 1px solid #deddda; border-radius: 9px; padding: 6px 9px; display: flex; flex-direction: column; gap: 3px;
+    }
+    .theme-libadwaita-next .row-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; color: #2e3436; }
+    .theme-libadwaita-next .badge { font-family: monospace; font-size: 10.5px; font-weight: 700; color: #1c71d8; background: rgba(28, 113, 216, 0.12); padding: 1px 6px; border-radius: 4px; }
+    .theme-libadwaita-next input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 6px; background: #deddda; outline: none; margin-top: 3px; }
+    .theme-libadwaita-next input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer;
+    }
+    .theme-libadwaita-next .btn-primary { background: #1c71d8; color: #ffffff; border: none; border-radius: 6px; font-size: 10.5px; font-weight: 600; padding: 5px 8px; cursor: pointer; }
+    .theme-libadwaita-next .btn-sec { background: #deddda; color: #2e3436; border: none; border-radius: 6px; font-size: 10px; font-weight: 600; padding: 4px 7px; cursor: pointer; }
+    .theme-libadwaita-next .ios-switch { position: relative; width: 30px; height: 17px; display: inline-block; }
+    .theme-libadwaita-next .ios-switch input { opacity: 0; }
+    .theme-libadwaita-next .ios-slider { position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0; background: #deddda; border-radius: 17px; }
+    .theme-libadwaita-next .ios-slider:before { position: absolute; content:""; height: 13px; width: 13px; left: 2px; bottom: 2px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: .2s; }
+    .theme-libadwaita-next input:checked + .ios-slider { background: #1c71d8; }
+    .theme-libadwaita-next input:checked + .ios-slider:before { transform: translateX(13px); }
+
+    /* STEPPER BUTTONS SHARED */
+    .stepper-box { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+    .stepper-btn { width: 22px; height: 22px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 12px; font-weight: 700; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+
+    @media (max-width: 700px) {
+      .sim-layout { flex-direction: column; }
+      .controls-panel { width: 100% !important; max-height: 48%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport theme-apple-glass" id="appRoot">
+
+    <!-- TOP 10-DESIGN SELECTOR BAR -->
+    <header class="showcase-nav-bar">
+      <div class="nav-brand-title">
+        <svg class="lucide-icon" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+        <span>Simulation UI Design Lab</span>
+      </div>
+
+      <div class="nav-pill-carousel" id="designTabs">
+        <button class="design-tab-btn active" onclick="switchDesign('theme-apple-glass', this, '1. Apple Glass & Inset Grouped', 'Translucent frosted glass with iOS 18 squircle cards & smooth pill toggles')">1. Apple Glass</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-linear-minimal', this, '2. Linear Minimalist Monospace', 'Razor-sharp 1px borders, high-density monospace telemetry & compact sliders')">2. Linear Minimal</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-lab-rack', this, '3. Physics Lab Hardware Rack', 'Precision test bench oscilloscope aesthetic with digital meter badges')">3. Lab Rack</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-scifi-hud', this, '4. Sci-Fi Cyberpunk HUD', 'Chamfered 45° polygon corners, neon blue energetic tracers & tactical brackets')">4. Sci-Fi HUD</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-soft-neumorphic', this, '5. Neumorphic Soft Clay', '3D embossed tactile surfaces, sunk-in slider grooves & soft pill depth')">5. Neumorphic</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-retro-synth', this, '6. Retro Synth / Bauhaus Terminal', 'Vintage analog synth console with heavy 2px black outlines & drop-shadows')">6. Retro Synth</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-floating-islands', this, '7. Floating Island Micro-Pills', 'Decoupled floating capsule containers with zero monolith mass')">7. Floating Pills</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-material-you', this, '8. Material Design 3 Expressive', 'Expressive squircles, 8px thick slider tracks & connected teardrop thumbs')">8. Material You</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-swiss-brutalist', this, '9. Swiss Brutalist Grid', 'Heavy structural dividing lines & raw red/black classroom legibility')">9. Swiss Brutalist</button>
+        <button class="design-tab-btn" onclick="switchDesign('theme-libadwaita-next', this, '10. Libadwaita Refined GNOME', 'Polished ActionRow cards with descriptive subtitles & GtkSpinButton steppers')">10. Libadwaita</button>
+      </div>
+
+      <div class="nav-actions">
+        <span class="badge-counter" id="activeDesignBadge">1 / 10 Active</span>
+      </div>
+    </header>
+
+    <!-- DESIGN PHILOSOPHY INFO BANNER -->
+    <div class="design-info-bar">
+      <div class="design-info-text">
+        <strong id="designTitleText">1. Apple Glass & Inset Grouped:</strong>
+        <span id="designDescText">Translucent frosted glass with iOS 18 squircle cards & smooth pill toggles</span>
+      </div>
+      <div class="design-features-tag" id="designTagText">CLASS: .theme-apple-glass</div>
+    </div>
+
+    <!-- MAIN SIMULATION WORKSPACE -->
+    <main class="sim-layout">
+      <!-- SIDEBAR CONTROLS (DYNAMICALLY STYLED BY THE 10 DESIGNS) -->
+      <aside class="controls-panel" id="controlsSidebar">
+        <!-- 1. HEADER -->
+        <div class="sim-header">
+          <div>
+            <div class="sim-title">Harmonic Oscillator</div>
+            <div class="sim-subtitle">Simple Harmonic Motion Lab</div>
+          </div>
+          <div style="font-size:10px;font-weight:700;opacity:0.75;">⚡ 1000Hz</div>
+        </div>
+
+        <!-- 2. MODE SWITCHER -->
+        <div class="mode-tabs">
+          <button class="mode-btn active" id="btnModePendulum" onclick="setMode('pendulum')">Pendulum</button>
+          <button class="mode-btn" id="btnModePhase" onclick="setMode('phase')">Phase Space</button>
+        </div>
+
+        <!-- 3. PLAYBACK DECK -->
+        <div class="deck-card">
+          <div style="display:flex;justify-content:space-between;gap:4px;align-items:center;">
+            <button class="btn-primary" id="playBtn" onclick="togglePlay()">▶ Play</button>
+            <button class="btn-sec" onclick="restartSim()">↺ Restart</button>
+            <button class="btn-sec" onclick="resetToDefaults()">Defaults</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;font-size:10px;">
+            <span>Speed: <strong id="speedVal">1.00x</strong></span>
+            <div style="display:flex;gap:3px;">
+              <button class="btn-sec" onclick="setSpeed(0.5)">0.5x</button>
+              <button class="btn-sec" onclick="setSpeed(1.0)">1.0x</button>
+              <button class="btn-sec" onclick="setSpeed(2.0)">2.0x</button>
+            </div>
+          </div>
+          <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.05" value="1.0" oninput="setSpeed(this.value)">
+        </div>
+
+        <!-- 4. PARAMETERS -->
+        <div class="param-card">
+          <div class="row-head">
+            <span>Length (L)</span>
+            <span class="badge" id="lenBadge">1.30 m</span>
+          </div>
+          <input type="range" id="lenSlider" min="50" max="200" value="130" oninput="updateParams()">
+        </div>
+
+        <div class="param-card">
+          <div class="row-head">
+            <span>Environment (g)</span>
+            <span class="badge" id="gBadge">9.8 m/s²</span>
+          </div>
+          <select id="envSelect" onchange="changeEnv(this.value)" style="width:100%;padding:3px;font-size:11px;border-radius:4px;margin-top:2px;">
+            <option value="9.8">Earth (9.8 m/s²)</option>
+            <option value="1.6">Moon (1.6 m/s²)</option>
+            <option value="24.8">Jupiter (24.8 m/s²)</option>
+          </select>
+        </div>
+
+        <div class="param-card">
+          <div class="row-head">
+            <span>Bob Mass (m)</span>
+            <span class="badge" id="massBadge">1.00 kg</span>
+          </div>
+          <div class="stepper-box">
+            <button class="stepper-btn" onclick="adjustMass(-0.25)">−</button>
+            <input type="range" id="massSlider" min="0.25" max="5.0" step="0.25" value="1.0" oninput="updateParams()" style="flex:1;">
+            <button class="stepper-btn" onclick="adjustMass(+0.25)">+</button>
+          </div>
+        </div>
+
+        <div class="param-card">
+          <div class="row-head">
+            <span>Damping (b)</span>
+            <span class="badge" id="dampBadge">0.4%</span>
+          </div>
+          <input type="range" id="dampSlider" min="0" max="0.04" step="0.002" value="0.004" oninput="updateParams()">
+        </div>
+
+        <div class="param-card">
+          <div class="row-head">
+            <span>Release Angle (θ₀)</span>
+            <span class="badge" id="angleBadge">45°</span>
+          </div>
+          <input type="range" id="angleSlider" min="5" max="80" value="45" oninput="updateParams()">
+        </div>
+
+        <!-- 5. VISUAL TOGGLES -->
+        <div class="param-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;">
+            <span>Vectors Overlay</span>
+            <label class="ios-switch"><input type="checkbox" id="showVectors" checked><span class="ios-slider"></span></label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-top:3px;">
+            <span>Motion Trace Arc</span>
+            <label class="ios-switch"><input type="checkbox" id="showTrace" checked><span class="ios-slider"></span></label>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-top:3px;">
+            <span>Energy Telemetry</span>
+            <label class="ios-switch"><input type="checkbox" id="showEnergy" checked><span class="ios-slider"></span></label>
+          </div>
+        </div>
+
+        <!-- 6. PRESET CHIPS -->
+        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;">
+          <button class="btn-sec" onclick="setPreset(15, 9.8, 0.004)">15° Small</button>
+          <button class="btn-sec" onclick="setPreset(60, 9.8, 0.004)">60° Large</button>
+          <button class="btn-sec" onclick="setPreset(45, 9.8, 0)">0% Damping</button>
+        </div>
+      </aside>
+
+      <!-- RIGHT SIMULATION CANVAS STAGE (HIGH CONTRAST CLASSROOM SURFACE) -->
+      <section class="canvas-container" id="canvasStageContainer">
+        <canvas id="simCanvas"></canvas>
+
+        <!-- FLOATING ZOOM BADGE -->
+        <div class="canvas-zoom-badge" onclick="resetZoom()" title="Click to reset zoom (100%)">
+          <svg class="lucide-icon" width="11" height="11" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+          <span id="zoomText">100%</span>
+        </div>
+
+        <!-- FLOATING TEACHING TOOLS DOCK -->
+        <div class="teaching-tools-dock">
+          <button class="dock-pill" onclick="toggleTool('photogate')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="14" r="8"/><line x1="12" x2="12" y1="10" y2="14"/></svg>
+            <span>Photogate</span>
+          </button>
+          <button class="dock-pill" onclick="toggleTool('formula')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/></svg>
+            <span>Formulas</span>
+          </button>
+          <button class="dock-pill" onclick="toggleTool('fbd')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+            <span>FBD Inspector</span>
+          </button>
+        </div>
+
+        <!-- FLOATING MODULAR INSTRUMENT CARDS -->
+        <div id="photogateCard" class="floating-tool-card">
+          <div class="card-header-bar">
+            <span>Photogate Timer</span>
+            <button class="card-close-btn" onclick="toggleTool('photogate')">✕</button>
+          </div>
+          <div style="font-size:10px;font-family:monospace;display:flex;flex-direction:column;gap:2px;">
+            <div>Period: <strong id="pgPeriod">-- s</strong></div>
+            <div>Speed:  <strong id="pgSpeed">-- m/s</strong></div>
+          </div>
+        </div>
+
+        <div id="formulaCard" class="floating-tool-card">
+          <div class="card-header-bar">
+            <span>Live Formula Evaluator</span>
+            <button class="card-close-btn" onclick="toggleTool('formula')">✕</button>
+          </div>
+          <div style="font-size:9.5px;font-family:monospace;display:flex;flex-direction:column;gap:2px;">
+            <div>ω₀ = √(g/L) = <span id="calcOmega">2.74 rad/s</span></div>
+            <div>T₀ = 2π/ω₀ = <span id="calcPeriod">2.29 s</span></div>
+          </div>
+        </div>
+
+        <div id="fbdCard" class="floating-tool-card">
+          <div class="card-header-bar">
+            <span>FBD Force Vectors</span>
+            <button class="card-close-btn" onclick="toggleTool('fbd')">✕</button>
+          </div>
+          <div style="font-size:9.5px;font-family:monospace;display:flex;flex-direction:column;gap:2px;">
+            <div>Tension (T): <span id="fbdTension">9.81 N</span></div>
+            <div>Restoring (F): <span id="fbdRestoring">-6.93 N</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 10 DESIGNS SWITCHER SCRIPT
+    // =========================================================================
+    const ALL_THEMES = [
+      'theme-apple-glass', 'theme-linear-minimal', 'theme-lab-rack',
+      'theme-scifi-hud', 'theme-soft-neumorphic', 'theme-retro-synth',
+      'theme-floating-islands', 'theme-material-you', 'theme-swiss-brutalist',
+      'theme-libadwaita-next'
+    ];
+
+    function switchDesign(themeClass, btn, title, desc) {
+      const root = document.getElementById('appRoot');
+      ALL_THEMES.forEach(t => root.classList.remove(t));
+      root.classList.add(themeClass);
+
+      document.querySelectorAll('.design-tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      document.getElementById('designTitleText').innerText = title + ':';
+      document.getElementById('designDescText').innerText = desc;
+      document.getElementById('designTagText').innerText = 'CLASS: .' + themeClass;
+
+      const idx = ALL_THEMES.indexOf(themeClass) + 1;
+      document.getElementById('activeDesignBadge').innerText = `${idx} / 10 Active`;
+    }
+
+    // =========================================================================
+    // 1000 HZ VSYNC PHYSICS ENGINE & SIMULATION CANVAS
+    // =========================================================================
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasStageContainer');
+
+    let canvasWidth = 500, canvasHeight = 320;
+    const origin = { x: 250, y: 40 };
+
+    let lenPx = 130;
+    let g = 9.8;
+    let mass = 1.0;
+    let damping = 0.004;
+    let initAngleDeg = 45;
+    let angle = (45 * Math.PI) / 180;
+    let aVel = 0;
+    let aAcc = 0;
+    let time = 0;
+    let isRunning = false;
+    let speedMultiplier = 1.0;
+    let currentMode = 'pendulum';
+    let trail = [];
+
+    // Zoom and pan
+    let zoomScale = 1.0;
+    let panOffset = { x: 0, y: 0 };
+    let isPanning = false, panStart = { x: 0, y: 0 };
+
+    const toolStates = { photogate: false, formula: false, fbd: false };
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      canvasWidth = rect.width;
+      canvasHeight = rect.height;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.resetTransform?.();
+      ctx.scale(dpr, dpr);
+      origin.x = rect.width / 2;
+      origin.y = 40;
+    }
+    if (window.ResizeObserver) {
+      new ResizeObserver(resizeCanvas).observe(container);
+    } else {
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    function togglePlay() {
+      isRunning = !isRunning;
+      document.getElementById('playBtn').innerText = isRunning ? '⏸ Pause' : '▶ Play';
+      lastFrameTime = performance.now();
+    }
+
+    function restartSim() {
+      angle = (initAngleDeg * Math.PI) / 180;
+      aVel = 0;
+      time = 0;
+      trail = [];
+    }
+
+    function resetToDefaults() {
+      document.getElementById('lenSlider').value = 130;
+      document.getElementById('envSelect').value = '9.8';
+      document.getElementById('massSlider').value = 1.0;
+      document.getElementById('dampSlider').value = 0.004;
+      document.getElementById('angleSlider').value = 45;
+      document.getElementById('speedSlider').value = 1.0;
+      speedMultiplier = 1.0;
+      updateParams();
+      restartSim();
+    }
+
+    function setSpeed(spd) {
+      speedMultiplier = parseFloat(spd);
+      document.getElementById('speedVal').innerText = speedMultiplier.toFixed(2) + 'x';
+      document.getElementById('speedSlider').value = spd;
+    }
+
+    function changeEnv(val) {
+      g = parseFloat(val);
+      document.getElementById('gBadge').innerText = g.toFixed(1) + ' m/s²';
+      updateFormulas();
+    }
+
+    function adjustMass(delta) {
+      const slider = document.getElementById('massSlider');
+      let val = Math.max(0.25, Math.min(5.0, parseFloat(slider.value) + delta));
+      slider.value = val;
+      updateParams();
+    }
+
+    function setPreset(ang, gVal, dampVal) {
+      document.getElementById('angleSlider').value = ang;
+      document.getElementById('envSelect').value = gVal;
+      document.getElementById('dampSlider').value = dampVal;
+      g = gVal;
+      updateParams();
+      restartSim();
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnModePendulum').classList.toggle('active', mode === 'pendulum');
+      document.getElementById('btnModePhase').classList.toggle('active', mode === 'phase');
+    }
+
+    function toggleTool(tool) {
+      toolStates[tool] = !toolStates[tool];
+      const el = document.getElementById(tool + 'Card');
+      if (el) el.classList.toggle('open', toolStates[tool]);
+    }
+
+    function resetZoom() {
+      zoomScale = 1.0;
+      panOffset = { x: 0, y: 0 };
+      document.getElementById('zoomText').innerText = '100%';
+    }
+
+    function updateParams() {
+      lenPx = parseFloat(document.getElementById('lenSlider').value);
+      mass = parseFloat(document.getElementById('massSlider').value);
+      damping = parseFloat(document.getElementById('dampSlider').value);
+      initAngleDeg = parseFloat(document.getElementById('angleSlider').value);
+
+      document.getElementById('lenBadge').innerText = (lenPx / 100).toFixed(2) + ' m';
+      document.getElementById('massBadge').innerText = mass.toFixed(2) + ' kg';
+      document.getElementById('dampBadge').innerText = (damping * 100).toFixed(1) + '%';
+      document.getElementById('angleBadge').innerText = initAngleDeg + '°';
+      updateFormulas();
+    }
+
+    function updateFormulas() {
+      const L_meters = lenPx / 100;
+      const omega = Math.sqrt(g / L_meters);
+      const T0 = (2 * Math.PI) / omega;
+      const calcW = document.getElementById('calcOmega');
+      const calcT = document.getElementById('calcPeriod');
+      if (calcW) calcW.innerText = omega.toFixed(2) + ' rad/s';
+      if (calcT) calcT.innerText = T0.toFixed(2) + ' s';
+    }
+
+    // 1000 HZ VSYNC MICRO-STEPPING LOOP
+    let physicsAccumulator = 0;
+    let lastFrameTime = performance.now();
+    const MICRO_DT = 0.001;
+
+    function stepPhysics(dt) {
+      const L_meters = lenPx / 100;
+      aAcc = (-g / L_meters) * Math.sin(angle) - (damping * 8) * aVel;
+      aVel += aAcc * dt;
+      angle += aVel * dt;
+      time += dt;
+    }
+
+    function draw() {
+      const now = performance.now();
+      let dtReal = (now - lastFrameTime) / 1000;
+      if (dtReal > 0.1) dtReal = 0.1;
+      lastFrameTime = now;
+
+      if (isRunning) {
+        physicsAccumulator += dtReal * speedMultiplier;
+        while (physicsAccumulator >= MICRO_DT) {
+          stepPhysics(MICRO_DT);
+          physicsAccumulator -= MICRO_DT;
+        }
+      }
+
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // Subtle Cartesian coordinate grid
+      ctx.strokeStyle = '#f0f0f0';
+      ctx.lineWidth = 1;
+      const gridStep = 40;
+      ctx.beginPath();
+      for (let x = 0; x < canvasWidth; x += gridStep) { ctx.moveTo(x, 0); ctx.lineTo(x, canvasHeight); }
+      for (let y = 0; y < canvasHeight; y += gridStep) { ctx.moveTo(0, y); ctx.lineTo(canvasWidth, y); }
+      ctx.stroke();
+
+      const L_meters = lenPx / 100;
+      const dynamicScale = Math.min(1.0, (canvasHeight - 90) / 220);
+      const effectiveLen = lenPx * dynamicScale;
+
+      const bobX = origin.x + effectiveLen * Math.sin(angle);
+      const bobY = origin.y + effectiveLen * Math.cos(angle);
+
+      const showVectors = document.getElementById('showVectors')?.checked;
+      const showTrace = document.getElementById('showTrace')?.checked;
+      const showEnergy = document.getElementById('showEnergy')?.checked;
+
+      // Trail
+      if (showTrace && isRunning) {
+        trail.push({ x: bobX, y: bobY });
+        if (trail.length > 40) trail.shift();
+      }
+      if (showTrace && trail.length > 1) {
+        ctx.strokeStyle = 'rgba(2, 132, 199, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < trail.length; i++) {
+          if (i === 0) ctx.moveTo(trail[i].x, trail[i].y);
+          else ctx.lineTo(trail[i].x, trail[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Vertical Equilibrium Axis
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(origin.x, origin.y + effectiveLen + 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Suspension Rod
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(bobX, bobY);
+      ctx.stroke();
+
+      // Pivot Mount
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Velocity Vector
+      const v_lin = aVel * L_meters;
+      if (showVectors && Math.abs(v_lin) > 0.05) {
+        const vScale = 25 * dynamicScale;
+        const vx = v_lin * Math.cos(angle) * vScale;
+        const vy = -v_lin * Math.sin(angle) * vScale;
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(bobX, bobY);
+        ctx.lineTo(bobX + vx, bobY + vy);
+        ctx.stroke();
+      }
+
+      // Pendulum Bob
+      const grad = ctx.createRadialGradient(bobX - 4, bobY - 4, 2, bobX, bobY, 15);
+      grad.addColorStop(0, '#7dd3fc');
+      grad.addColorStop(0.7, '#0284c7');
+      grad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(bobX, bobY, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // HUD Cards on Canvas
+      const T0 = (2 * Math.PI) / Math.sqrt(g / L_meters);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      ctx.fillRect(10, 10, 180, 68);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.strokeRect(10, 10, 180, 68);
+      ctx.fillStyle = '#0284c7';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText('TIME:   t  = ' + time.toFixed(2) + ' s', 18, 26);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '10px monospace';
+      ctx.fillText('ANGLE:  θ  = ' + ((angle * 180) / Math.PI).toFixed(1) + '°', 18, 40);
+      ctx.fillText('SPEED:  v  = ' + Math.abs(v_lin).toFixed(2) + ' m/s', 18, 54);
+      ctx.fillText('PERIOD: T₀ = ' + T0.toFixed(2) + ' s', 18, 68);
+
+      // Energy HUD
+      if (showEnergy && canvasWidth > 420) {
+        const Ek = 0.5 * mass * (v_lin * v_lin);
+        const h = L_meters * (1 - Math.cos(angle));
+        const Ep = mass * g * h;
+        const Etotal = Ek + Ep;
+        const maxE = mass * g * (L_meters * (1 - Math.cos((initAngleDeg * Math.PI) / 180))) + 0.01;
+
+        const rightX = canvasWidth - 190;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+        ctx.fillRect(rightX, 10, 180, 68);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(rightX, 10, 180, 68);
+
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('ENERGY TELEMETRY (J)', rightX + 8, 24);
+
+        ctx.fillStyle = '#0284c7';
+        ctx.fillText('Ek: ' + Ek.toFixed(2) + 'J', rightX + 8, 38);
+        ctx.fillRect(rightX + 90, 31, Math.min(80, (Ek / maxE) * 80), 7);
+
+        ctx.fillStyle = '#d97706';
+        ctx.fillText('Ep: ' + Ep.toFixed(2) + 'J', rightX + 8, 51);
+        ctx.fillRect(rightX + 90, 44, Math.min(80, (Ep / maxE) * 80), 7);
+
+        ctx.fillStyle = '#16a34a';
+        ctx.fillText('Et: ' + Etotal.toFixed(2) + 'J', rightX + 8, 64);
+        ctx.fillRect(rightX + 90, 57, Math.min(80, (Etotal / maxE) * 80), 7);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    resizeCanvas();
+    updateParams();
+    draw();
+  </script>
+</body>
+</html>
