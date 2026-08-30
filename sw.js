@@ -3,11 +3,11 @@
  * 30-Day Offline Caching Engine for Dynamic Content, Static Assets & Curriculum Data
  */
 
-const CACHE_NAME = "teaching-hub-v2";
+const CACHE_NAME = "teaching-hub-v3";
 const OFFLINE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days in milliseconds
 
-// Core app shell routes to pre-cache on install (using relative paths for any domain / basePath)
-const PRECACHE_ASSETS = ["./", "./login/", "./signup/", "./class-11/"];
+// Do not precache HTML shell pages on install to avoid locking stale chunk hashes
+const PRECACHE_ASSETS = [];
 
 // Helper: Check if response has expired (> 30 days old)
 function isCacheExpired(response) {
@@ -56,25 +56,27 @@ async function sweepExpiredCacheEntries() {
   }
 }
 
-// 1. Install Event: Pre-cache core shell routes
+// 1. Install Event: Fast install without static HTML pinning
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       try {
-        const cache = await caches.open(CACHE_NAME);
-        await Promise.allSettled(
-          PRECACHE_ASSETS.map(async (url) => {
-            try {
-              const res = await fetch(new Request(url, { cache: "reload" }));
-              if (res && res.ok) {
-                const expiringRes = await createExpiringResponse(res);
-                await cache.put(url, expiringRes);
+        if (PRECACHE_ASSETS.length > 0) {
+          const cache = await caches.open(CACHE_NAME);
+          await Promise.allSettled(
+            PRECACHE_ASSETS.map(async (url) => {
+              try {
+                const res = await fetch(new Request(url, { cache: "reload" }));
+                if (res && res.ok) {
+                  const expiringRes = await createExpiringResponse(res);
+                  await cache.put(url, expiringRes);
+                }
+              } catch (err) {
+                console.debug(`[SW] Pre-cache skip for ${url}:`, err);
               }
-            } catch (err) {
-              console.debug(`[SW] Pre-cache skip for ${url}:`, err);
-            }
-          })
-        );
+            })
+          );
+        }
       } catch (err) {
         console.debug("[SW] Cache open notice on install:", err);
       }
@@ -122,7 +124,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Strategy A: Next.js Static JS/CSS/Fonts Chunks -> Cache-First
+  // Strategy A: Navigation & HTML Pages -> Strict Network-First (never serve stale HTML online)
+  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request, { cache: "no-cache" });
+          if (networkResponse.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            const expiring = await createExpiringResponse(networkResponse);
+            cache.put(request, expiring);
+          }
+          return networkResponse;
+        } catch {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(request);
+          if (cached) return cached;
+          const fallback = (await cache.match("./index.html")) || (await cache.match("./"));
+          if (fallback) return fallback;
+          return new Response("Offline page unavailable", { status: 503 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Strategy B: Next.js Static JS/CSS/Fonts Chunks -> Cache-First
   if (
     url.pathname.includes("/_next/static/") ||
     url.pathname.endsWith(".woff2") ||
@@ -154,31 +181,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Strategy B: Navigation & HTML Pages -> Network-First, fallback to Cache
-  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
-    event.respondWith(
-      (async () => {
-        try {
-          const networkResponse = await fetch(request);
-          if (networkResponse.ok) {
-            const cache = await caches.open(CACHE_NAME);
-            const expiring = await createExpiringResponse(networkResponse);
-            cache.put(request, expiring);
-          }
-          return networkResponse;
-        } catch {
-          const cache = await caches.open(CACHE_NAME);
-          const cached = await cache.match(request);
-          if (cached) return cached;
-          const fallback = await cache.match("./index.html") || await cache.match("./");
-          if (fallback) return fallback;
-          return new Response("Offline page unavailable", { status: 503 });
-        }
-      })()
-    );
-    return;
-  }
-
   // Strategy C: Default Stale-While-Revalidate
   event.respondWith(
     (async () => {
@@ -194,7 +196,7 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cached);
 
-      return (cached && !isCacheExpired(cached)) ? cached : fetchPromise;
+      return cached && !isCacheExpired(cached) ? cached : fetchPromise;
     })()
   );
 });
