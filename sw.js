@@ -1,24 +1,13 @@
 /**
  * Sekhar Teaching Hub - Progressive Service Worker
- * 30-Day Offline Caching Engine for Simulations, Static Assets & Curriculum Data
+ * 30-Day Offline Caching Engine for Dynamic Content, Static Assets & Curriculum Data
  */
 
-const CACHE_NAME = "teaching-hub-simulations-v1";
+const CACHE_NAME = "teaching-hub-v2";
 const OFFLINE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days in milliseconds
 
-// Core assets to pre-cache on install
-const PRECACHE_ASSETS = [
-  "/",
-  "/login",
-  "/signup",
-  "/class-11",
-  "/simulations/projectile-motion.html",
-  "/simulations/harmonic-oscillator.html",
-  "/simulations/gpu-particle-benchmark.html",
-  "/simulations/gpu-compute-benchmark.html",
-  "/simulations/ui-design-showcase.html",
-  "/simulations/uidesign.html",
-];
+// Core app shell routes to pre-cache on install (using relative paths for any domain / basePath)
+const PRECACHE_ASSETS = ["./", "./login/", "./signup/", "./class-11/"];
 
 // Helper: Check if response has expired (> 30 days old)
 function isCacheExpired(response) {
@@ -63,11 +52,11 @@ async function sweepExpiredCacheEntries() {
       }
     }
   } catch (err) {
-    console.warn("[SW] Error sweeping expired cache entries:", err);
+    console.debug("[SW] Error sweeping expired cache entries:", err);
   }
 }
 
-// 1. Install Event: Pre-cache core simulation files & routes
+// 1. Install Event: Pre-cache core shell routes
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -76,18 +65,18 @@ self.addEventListener("install", (event) => {
         await Promise.allSettled(
           PRECACHE_ASSETS.map(async (url) => {
             try {
-              const res = await fetch(url);
-              if (res.ok) {
+              const res = await fetch(new Request(url, { cache: "reload" }));
+              if (res && res.ok) {
                 const expiringRes = await createExpiringResponse(res);
                 await cache.put(url, expiringRes);
               }
             } catch (err) {
-              console.warn(`[SW] Pre-cache skip for ${url}:`, err);
+              console.debug(`[SW] Pre-cache skip for ${url}:`, err);
             }
           })
         );
       } catch (err) {
-        console.warn("[SW] Cache open failed on install:", err);
+        console.debug("[SW] Cache open notice on install:", err);
       }
       await self.skipWaiting();
     })()
@@ -98,168 +87,114 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const cacheKeys = await caches.keys();
-      for (const key of cacheKeys) {
-        if (key !== CACHE_NAME) {
-          await caches.delete(key);
-        }
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map((name) => {
+            if (name !== CACHE_NAME) {
+              return caches.delete(name);
+            }
+          })
+        );
+        await sweepExpiredCacheEntries();
+      } catch (err) {
+        console.debug("[SW] Error during activation cleanup:", err);
       }
-      await sweepExpiredCacheEntries();
       await self.clients.claim();
     })()
   );
 });
 
-// 3. Fetch Handler: Stale-While-Revalidate with 30-Day Expiration
+// 3. Fetch Event: Network-First for Navigation, Cache-First with 30-Day TTL for Assets & Media
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests from the same origin
-  if (request.method !== "GET" || url.origin !== self.location.origin) {
-    return;
-  }
-
-  // Strictly bypass Next.js runtime chunks, HMR, Turbopack, and router RSC requests
+  // Skip non-GET requests and Firebase/Google APIs
   if (
-    url.pathname.startsWith("/_next/") ||
-    url.searchParams.has("_rsc") ||
-    url.pathname.includes("webpack") ||
-    url.pathname.includes("turbopack") ||
-    url.pathname.includes("hot-update")
+    request.method !== "GET" ||
+    url.hostname.includes("firestore.googleapis.com") ||
+    url.hostname.includes("firebase") ||
+    url.hostname.includes("identitytoolkit") ||
+    url.hostname.includes("googleapis.com") ||
+    url.hostname.includes("gstatic.com")
   ) {
     return;
   }
 
-  // Determine if this is a simulation file or static font/media asset
-  const isSimulation = url.pathname.startsWith("/simulations/");
-  const isStaticFontOrMedia =
+  // Strategy A: Next.js Static JS/CSS/Fonts Chunks -> Cache-First
+  if (
+    url.pathname.includes("/_next/static/") ||
     url.pathname.endsWith(".woff2") ||
     url.pathname.endsWith(".woff") ||
-    url.pathname.endsWith(".svg") ||
-    url.pathname.endsWith(".png") ||
-    url.pathname.endsWith(".ico");
+    url.pathname.endsWith(".ttf") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".js")
+  ) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(request);
+        if (cached && !isCacheExpired(cached)) {
+          return cached;
+        }
 
-  if (!isSimulation && !isStaticFontOrMedia) {
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse.ok) {
+            const expiring = await createExpiringResponse(networkResponse);
+            cache.put(request, expiring);
+          }
+          return networkResponse;
+        } catch {
+          return cached || new Response("Offline resource unavailable", { status: 503 });
+        }
+      })()
+    );
     return;
   }
 
+  // Strategy B: Navigation & HTML Pages -> Network-First, fallback to Cache
+  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            const expiring = await createExpiringResponse(networkResponse);
+            cache.put(request, expiring);
+          }
+          return networkResponse;
+        } catch {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(request);
+          if (cached) return cached;
+          const fallback = await cache.match("./index.html") || await cache.match("./");
+          if (fallback) return fallback;
+          return new Response("Offline page unavailable", { status: 503 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Strategy C: Default Stale-While-Revalidate
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      const cachedResponse = await cache.match(request);
-
-      // A. If cached response exists and is within 30 days TTL:
-      if (cachedResponse && !isCacheExpired(cachedResponse)) {
-        // In background, perform conditional revalidation if online
-        event.waitUntil(
-          (async () => {
-            try {
-              const headers = new Headers();
-              const etag = cachedResponse.headers.get("etag");
-              const lastModified = cachedResponse.headers.get("last-modified");
-              if (etag) headers.set("If-None-Match", etag);
-              if (lastModified) headers.set("If-Modified-Since", lastModified);
-
-              const networkResponse = await fetch(request, { headers });
-
-              if (networkResponse.status === 200) {
-                const newExpiringResponse = await createExpiringResponse(networkResponse);
-                await cache.put(request, newExpiringResponse);
-
-                if (isSimulation) {
-                  const clients = await self.clients.matchAll();
-                  clients.forEach((client) => {
-                    client.postMessage({
-                      type: "SIMULATION_CACHE_UPDATED",
-                      url: url.pathname,
-                      updatedAt: Date.now(),
-                    });
-                  });
-                }
-              } else if (networkResponse.status === 304) {
-                const refreshedResponse = await createExpiringResponse(cachedResponse);
-                await cache.put(request, refreshedResponse);
-              }
-            } catch {
-              // Device is offline or server unreachable - silent fallback to valid cache
-            }
-          })()
-        );
-
-        // Serve cached version immediately for 0ms instant load
-        return cachedResponse;
-      }
-
-      // B. If not in cache or expired, fetch from network and store in cache
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse && networkResponse.status === 200) {
-          const expiringResponse = await createExpiringResponse(networkResponse);
-          await cache.put(request, expiringResponse);
+      const cached = await cache.match(request);
+      const fetchPromise = fetch(request)
+        .then(async (networkResponse) => {
+          if (networkResponse.ok) {
+            const expiring = await createExpiringResponse(networkResponse);
+            cache.put(request, expiring);
+          }
           return networkResponse;
-        }
-        return networkResponse;
-      } catch (networkError) {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        if (isPageRoute) {
-          const rootFallback = await cache.match("/");
-          if (rootFallback) return rootFallback;
-        }
-        throw networkError;
-      }
+        })
+        .catch(() => cached);
+
+      return (cached && !isCacheExpired(cached)) ? cached : fetchPromise;
     })()
   );
-});
-
-// 4. Message Handler for Cache Management
-self.addEventListener("message", (event) => {
-  const { data } = event;
-  if (!data) return;
-
-  if (data.type === "SW_PRECACHE_ALL") {
-    event.waitUntil(
-      (async () => {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          const urls = Array.isArray(data.urls) ? data.urls : PRECACHE_ASSETS;
-          let count = 0;
-          for (const url of urls) {
-            try {
-              const res = await fetch(url);
-              if (res.ok) {
-                const expiringRes = await createExpiringResponse(res);
-                await cache.put(url, expiringRes);
-                count++;
-              }
-            } catch (err) {
-              console.warn(`[SW] Precache failed for ${url}:`, err);
-            }
-          }
-          if (event.source) {
-            event.source.postMessage({
-              type: "SW_PRECACHE_COMPLETE",
-              successCount: count,
-              totalCount: urls.length,
-            });
-          }
-        } catch (err) {
-          console.error("[SW] Precache all failed:", err);
-        }
-      })()
-    );
-  }
-
-  if (data.type === "SW_CLEAR_CACHE") {
-    event.waitUntil(
-      (async () => {
-        await caches.delete(CACHE_NAME);
-        if (event.source) {
-          event.source.postMessage({ type: "SW_CACHE_CLEARED" });
-        }
-      })()
-    );
-  }
 });
