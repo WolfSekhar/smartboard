@@ -3,7 +3,7 @@
  * 30-Day Offline Caching Engine for Dynamic Content, Static Assets & Curriculum Data
  */
 
-const CACHE_NAME = "teaching-hub-v3";
+const CACHE_NAME = "teaching-hub-v4";
 const OFFLINE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days in milliseconds
 
 // Do not precache HTML shell pages on install to avoid locking stale chunk hashes
@@ -181,22 +181,66 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Strategy C: Default Stale-While-Revalidate
-  event.respondWith(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
-      const fetchPromise = fetch(request)
-        .then(async (networkResponse) => {
+  // Strategy C: Next.js RSC / Data Prefetches (_rsc queries or .txt / .json)
+  const isRSC = url.searchParams.has("_rsc") || url.pathname.endsWith(".txt") || url.pathname.endsWith(".json");
+  if (isRSC) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request);
           if (networkResponse.ok) {
+            const cache = await caches.open(CACHE_NAME);
             const expiring = await createExpiringResponse(networkResponse);
             cache.put(request, expiring);
+            return networkResponse;
           }
+          // If server returned 404 for an ungenerated RSC file in static export,
+          // check if we have a cached copy or return empty RSC response instead of breaking
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(request);
+          if (cached) return cached;
           return networkResponse;
-        })
-        .catch(() => cached);
+        } catch {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(request);
+          if (cached) return cached;
+          return new Response("", {
+            status: 200,
+            headers: { "Content-Type": "text/x-component" },
+          });
+        }
+      })()
+    );
+    return;
+  }
 
-      return cached && !isCacheExpired(cached) ? cached : fetchPromise;
+  // Strategy D: Default Stale-While-Revalidate with Safe Fallback
+  event.respondWith(
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(request);
+
+        const fetchPromise = fetch(request)
+          .then(async (networkResponse) => {
+            if (networkResponse && networkResponse.ok) {
+              const expiring = await createExpiringResponse(networkResponse);
+              cache.put(request, expiring);
+            }
+            return networkResponse;
+          })
+          .catch(() => cached || new Response("", { status: 404 }));
+
+        if (cached && !isCacheExpired(cached)) {
+          return cached;
+        }
+
+        const res = await fetchPromise;
+        if (res) return res;
+        return cached || new Response("", { status: 404 });
+      } catch {
+        return new Response("", { status: 404 });
+      }
     })()
   );
 });
