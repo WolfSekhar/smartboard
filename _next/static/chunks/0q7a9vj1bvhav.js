@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,29306,o=>{"use strict";o.s(["default",0,function(){{let o=encodeURIComponent(window.location.pathname+window.location.search+window.location.hash);window.location.replace(`/?redirect=${o}`)}return null}])}]);
