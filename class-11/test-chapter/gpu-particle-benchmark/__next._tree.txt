@@ -1,0 +1,5 @@
+:HL["/smartboard/_next/static/chunks/0te_qn81qs-gc.css","style"]
+:HL["/smartboard/_next/static/chunks/0nh1r938cptx-.css","style"]
+:HC["/",""]
+:HL["/smartboard/_next/static/chunks/1xkhdrn8hgctt.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"classId","param":{"type":"d","key":"class-11","siblings":["login","signup"]},"prefetchHints":4192,"slots":{"children":{"name":"chapterId","param":{"type":"d","key":"test-chapter","siblings":[]},"prefetchHints":4192,"slots":{"children":{"name":"topicId","param":{"type":"d","key":"gpu-particle-benchmark","siblings":[]},"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}}}}}},"staleTime":300,"buildId":"qmv7JquBN2sAoZvG2w5Ju"}
