@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — OFFICIAL 3D PHYSICS SIMULATION (Three.js + SekharSimUI)
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
+     TYPOGRAPHY: Clean Balanced Typography (Smartboard Edition)
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Physics Simulation — Sekhar Teaching Hub</title>
+
+  <!-- Three.js + OrbitControls Multi-Tier Fallback -->
+  <script src="/lib/three.min.js"></script>
+  <script>window.THREE || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+  <script src="/lib/OrbitControls.js"></script>
+  <script>window.THREE?.OrbitControls || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>')</script>
+
+  <!-- SekharSimUI Loader -->
+  <script src="/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/personal-teaching-web-app@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    let isRunning = false, simTime = 0, theta = 0;
+
+    const sim = new SekharSimUI({
+      title: "3D Planetary Gravitation",
+      subtitle: "Three.js Orbital Mechanics",
+      sliders: [
+        { id: "orbitRadius", label: "Orbit Radius (R)", min: 10, max: 50, step: 1, value: 25, unit: "AU" },
+        { id: "starMass", label: "Central Mass (M)", min: 1, max: 10, step: 0.5, value: 4, unit: "M☉" },
+        { id: "eccentricity", label: "Eccentricity (e)", min: 0, max: 0.8, step: 0.05, value: 0.2, unit: "" }
+      ],
+      toggles: [
+        { id: "showLabels", label: "Show Canvas Labels (2×)", checked: false },
+        { id: "showGrid", label: "Equatorial Grid", checked: false }
+      ],
+      presets: [
+        { label: "Circular Orbit", values: { orbitRadius: 20, starMass: 3, eccentricity: 0 } },
+        { label: "Comet Trajectory", values: { orbitRadius: 35, starMass: 6, eccentricity: 0.75 } }
+      ],
+      hud: ["time", "velocity", "period"],
+      onPlayChange: (running) => { isRunning = running; },
+      onReset: () => { simTime = 0; theta = 0; }
+    });
+
+    // Non-Overlapping Smartboard Spatial Label Engine (NOSLE Standard)
+    class LabelOcclusionManager {
+      constructor() { this.obstacles = []; this.placedLabels = []; }
+      reset() {
+        while (this.obstacles.length > 0) this.obstacles.shift();
+        while (this.placedLabels.length > 0) this.placedLabels.shift();
+      }
+      addCircleObstacle(cx, cy, r, pad = 6) {
+        const totalR = r + pad;
+        if (this.obstacles.length > 50) this.obstacles.shift();
+        this.obstacles.push({ left: cx - totalR, top: cy - totalR, right: cx + totalR, bottom: cy + totalR, cx, cy, r: totalR });
+      }
+      isCollision(box) {
+        for (const obs of this.obstacles) {
+          const closestX = Math.max(box.left, Math.min(obs.cx, box.right));
+          const closestY = Math.max(box.top, Math.min(obs.cy, box.bottom));
+          if ((obs.cx - closestX) ** 2 + (obs.cy - closestY) ** 2 < obs.r * obs.r) return true;
+        }
+        for (const lbl of this.placedLabels) {
+          if (!(box.right < lbl.left - 4 || box.left > lbl.right + 4 || box.bottom < lbl.top - 4 || box.top > lbl.bottom + 4)) return true;
+        }
+        return false;
+      }
+    }
+    const labelManager = new LabelOcclusionManager();
+
+    // 3D Scene Initialization
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, sim.width / sim.height, 0.1, 1000);
+    camera.position.set(0, 35, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(sim.width, sim.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    sim.canvasHost.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffddaa, 2, 200);
+    scene.add(pointLight);
+
+    // Central Star (Smartboard Scaled & Breathing Glow Aura)
+    const starGeo = new THREE.SphereGeometry(4.5, 32, 32);
+    const starMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+    const star = new THREE.Mesh(starGeo, starMat);
+    scene.add(star);
+
+    const starGlowGeo = new THREE.SphereGeometry(6.2, 32, 32);
+    const starGlowMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.25 });
+    const starGlow = new THREE.Mesh(starGlowGeo, starGlowMat);
+    scene.add(starGlow);
+
+    // Orbiting Planet
+    const planetGeo = new THREE.SphereGeometry(1.8, 32, 32);
+    const planetMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 });
+    const planet = new THREE.Mesh(planetGeo, planetMat);
+    scene.add(planet);
+
+    // Grid Helper
+    const grid = new THREE.GridHelper(80, 20, 0x475569, 0x334155);
+    scene.add(grid);
+
+    sim.onResize((w, h) => {
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    sim.onThemeChange((theme) => {
+      renderer.setClearColor(theme.canvasBg, 1);
+    });
+    renderer.setClearColor(sim.theme.canvasBg, 1);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      const R = sim.get('orbitRadius');
+      const M = sim.get('starMass');
+      const e = sim.get('eccentricity');
+      const speed = sim.speed;
+
+      if (isRunning) {
+        const omega = Math.sqrt(M / Math.pow(R, 3)) * 4 * speed;
+        theta += omega * 0.016;
+        simTime += 0.016 * speed;
+      }
+
+      // Keplerian Ellipse
+      const r_current = (R * (1 - e * e)) / (1 + e * Math.cos(theta));
+      planet.position.x = r_current * Math.cos(theta);
+      planet.position.z = r_current * Math.sin(theta);
+      planet.rotation.y += 0.02;
+
+      // Breathing Star Glow Pulse
+      const pulse = (Math.sin(performance.now() * 0.005) + 1) / 2;
+      starGlow.scale.setScalar(1.0 + pulse * 0.15);
+      starGlowMat.opacity = 0.18 + pulse * 0.15;
+
+      grid.visible = sim.get('showGrid');
+
+      // Telemetry HUD
+      const v = Math.sqrt(M * (2 / r_current - 1 / R));
+      const T = 2 * Math.PI * Math.sqrt(Math.pow(R, 3) / M);
+      sim.setHud({
+        time: `${simTime.toFixed(1)} yr`,
+        velocity: `${v.toFixed(2)} km/s`,
+        period: `${T.toFixed(1)} yr`
+      });
+
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

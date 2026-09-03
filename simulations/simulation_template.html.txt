@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — OFFICIAL 2D PHYSICS SIMULATION (q5.js + SekharSimUI)
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
+     TYPOGRAPHY: Clean Balanced Typography (Smartboard Edition)
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Physics Simulation — Sekhar Teaching Hub</title>
+
+  <!-- Multi-Tier Resilient q5.js Loader -->
+  <script src="/lib/q5.min.js"></script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/npm/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://raw.githubusercontent.com/quinton-ashley/q5.js/master/q5.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/gh/quinton-ashley/q5.js@master/q5.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://unpkg.com/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>if (!window.p5 && window.Q5) window.p5 = window.Q5;</script>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/personal-teaching-web-app@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/personal-teaching-web-app/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    let isRunning = false, simTime = 0, x = 120, vx = 0, ax = 0;
+
+    const sim = new SekharSimUI({
+      title: "Simple Harmonic Motion",
+      subtitle: "q5.js 2D Spring Oscillator",
+      sliders: [
+        { id: "mass", label: "Mass (m)", min: 0.5, max: 5.0, step: 0.1, value: 1.5, unit: "kg" },
+        { id: "k", label: "Spring Constant (k)", min: 10, max: 100, step: 5, value: 40, unit: "N/m" },
+        { id: "damping", label: "Damping (γ)", min: 0, max: 0.5, step: 0.01, value: 0.05, unit: "s⁻¹" }
+      ],
+      toggles: [
+        { id: "showLabels", label: "Show Canvas Labels (2×)", checked: false },
+        { id: "showVel", label: "Velocity Vector (v)", checked: false },
+        { id: "showAcc", label: "Acceleration Vector (a)", checked: false }
+      ],
+      presets: [
+        { label: "Underdamped", values: { mass: 1.0, k: 50, damping: 0.02 } },
+        { label: "Critically Damped", values: { mass: 2.0, k: 30, damping: 0.35 } },
+        { label: "Heavy Mass", values: { mass: 4.5, k: 80, damping: 0.05 } }
+      ],
+      hud: ["time", "position", "energy"],
+      onPlayChange: (running) => { isRunning = running; },
+      onReset: () => { simTime = 0; x = 120; vx = 0; ax = 0; }
+    });
+
+    // Non-Overlapping Smartboard Spatial Label Engine (NOSLE Standard)
+    class LabelOcclusionManager {
+      constructor() { this.obstacles = []; this.placedLabels = []; }
+      reset() {
+        while (this.obstacles.length > 0) this.obstacles.shift();
+        while (this.placedLabels.length > 0) this.placedLabels.shift();
+      }
+      addBoxObstacle(x, y, w, h, pad = 6) {
+        if (this.obstacles.length > 50) this.obstacles.shift();
+        this.obstacles.push({ left: x - pad, top: y - pad, right: x + w + pad, bottom: y + h + pad, type: 'box' });
+      }
+      addCircleObstacle(cx, cy, r, pad = 6) {
+        const totalR = r + pad;
+        if (this.obstacles.length > 50) this.obstacles.shift();
+        this.obstacles.push({ left: cx - totalR, top: cy - totalR, right: cx + totalR, bottom: cy + totalR, cx, cy, r: totalR, type: 'circle' });
+      }
+      isCollision(box) {
+        for (const obs of this.obstacles) {
+          if (obs.type === 'circle') {
+            const closestX = Math.max(box.left, Math.min(obs.cx, box.right));
+            const closestY = Math.max(box.top, Math.min(obs.cy, box.bottom));
+            if ((obs.cx - closestX) ** 2 + (obs.cy - closestY) ** 2 < obs.r * obs.r) return true;
+          } else if (!(box.right < obs.left || box.left > obs.right || box.bottom < obs.top || box.top > obs.bottom)) {
+            return true;
+          }
+        }
+        for (const lbl of this.placedLabels) {
+          if (!(box.right < lbl.left - 4 || box.left > lbl.right + 4 || box.bottom < lbl.top - 4 || box.top > lbl.bottom + 4)) return true;
+        }
+        return false;
+      }
+    }
+    const labelManager = new LabelOcclusionManager();
+
+    new Q5('global', sim.canvasHost, (q) => {
+      q.setup = () => { q.createCanvas(sim.width, sim.height); };
+      sim.onResize((w, h) => q.resizeCanvas(w, h));
+
+      q.draw = () => {
+        const mass = sim.get('mass');
+        const k = sim.get('k');
+        const damping = sim.get('damping');
+        const speed = sim.speed;
+
+        if (isRunning) {
+          const dt = (1 / 60) * speed;
+          const subSteps = 16;
+          const sdt = dt / subSteps;
+          for (let step = 0; step < subSteps; step++) {
+            ax = (-k * x - damping * vx) / mass;
+            vx += ax * sdt;
+            x += vx * sdt;
+            simTime += sdt;
+          }
+        }
+
+        // Draw Canvas Stage
+        q.background(sim.theme.canvasBg);
+
+        // Center Spring & Mass
+        q.push();
+        q.translate(q.width / 2, q.height / 2);
+        
+        // Wall Anchor
+        q.fill(sim.theme.subtitle); q.noStroke();
+        q.rect(-180, -40, 15, 80);
+
+        // Spring Coils
+        const currentLen = 140 + x;
+        q.stroke(sim.theme.text); q.strokeWeight(3); q.noFill();
+        q.beginShape();
+        q.vertex(-165, 0);
+        for (let i = 1; i < 20; i++) {
+          const sx = -165 + (currentLen / 20) * i;
+          const sy = (i % 2 === 0 ? 1 : -1) * 16;
+          q.vertex(sx, sy);
+        }
+        q.vertex(currentLen - 165, 0);
+        q.endShape();
+
+        // Mass Block & Periodic Breathing Halo
+        const pulseTime = performance.now() * 0.005;
+        const haloPad = 8 + ((Math.sin(pulseTime) + 1) / 2) * 8;
+        q.fill(sim.theme.isDark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0, 71, 186, 0.15)');
+        q.noStroke();
+        q.rect(currentLen - 165 - haloPad, -25 - haloPad, 50 + haloPad * 2, 50 + haloPad * 2);
+
+        q.fill(sim.theme.accent); q.stroke(sim.theme.text); q.strokeWeight(2);
+        q.rect(currentLen - 165, -25, 50, 50);
+
+        if (sim.get('showLabels')) {
+          q.fill(sim.theme.isDark ? 0 : 255); q.noStroke();
+          q.textFont('Roboto Mono, monospace', 18); q.textStyle(q.NORMAL);
+          q.textAlign(q.CENTER, q.CENTER);
+          q.text(`${mass.toFixed(1)}kg`, currentLen - 140, 0);
+        }
+
+        // Force & Velocity Vectors (Separated to avoid collinear overlap)
+        if (sim.get('showVel') && Math.abs(vx) > 1) {
+          q.stroke(sim.theme.accent); q.strokeWeight(3.5);
+          q.line(currentLen - 140, -42, currentLen - 140 + vx * 0.3, -42);
+        }
+        if (sim.get('showAcc') && Math.abs(ax) > 1) {
+          q.stroke(sim.theme.coral); q.strokeWeight(3.5);
+          q.line(currentLen - 140, 42, currentLen - 140 + ax * 0.15, 42);
+        }
+        q.pop();
+
+        // Live HUD Telemetry in 1 line
+        const E = 0.5 * k * Math.pow(x/100, 2) + 0.5 * mass * Math.pow(vx/100, 2);
+        sim.setHud({
+          time: `${simTime.toFixed(2)} s`,
+          position: `${(x/100).toFixed(2)} m`,
+          energy: `${E.toFixed(2)} J`
+        });
+      };
+    });
+  </script>
+</body>
+</html>

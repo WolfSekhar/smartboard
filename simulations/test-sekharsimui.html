@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SekharSimUI Verification Test Lab</title>
+
+  <!-- Multi-Tier Resilient q5.js Loader -->
+  <script src="/lib/q5.min.js"></script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/npm/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>if (!window.p5 && window.Q5) window.p5 = window.Q5;</script>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/personal-teaching-web-app@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    let isRunning = false;
+    let time = 0;
+    let posX = 50;
+    let posY = 0;
+    let velX = 30;
+    let velY = -40;
+    const gravity = 9.8;
+    const trail = [];
+
+    // 1. Declarative SekharSimUI Setup
+    const sim = new SekharSimUI({
+      title: "Projectile Kinematics Lab",
+      subtitle: "SekharSimUI 2D Verification",
+      sliders: [
+        { id: "v0", label: "Launch Speed (v₀)", min: 10, max: 80, step: 1, value: 45, unit: "m/s" },
+        { id: "angle", label: "Launch Angle (θ)", min: 10, max: 85, step: 1, value: 45, unit: "°" },
+        { id: "height", label: "Initial Height (y₀)", min: 0, max: 50, step: 1, value: 10, unit: "m" }
+      ],
+      toggles: [
+        { id: "showVectors", label: "Velocity Vectors", checked: true },
+        { id: "showTrail", label: "Motion Trail Arc", checked: true }
+      ],
+      presets: [
+        { label: "45° Max Range", values: { v0: 50, angle: 45, height: 0 } },
+        { label: "Cliff Launch", values: { v0: 35, angle: 30, height: 40 } },
+        { label: "High Arc (75°)", values: { v0: 60, angle: 75, height: 0 } }
+      ],
+      hud: ["time", "range", "max_height", "velocity"],
+      onPlayChange: (running) => { isRunning = running; },
+      onReset: () => resetApparatus()
+    });
+
+    function resetApparatus() {
+      const v0 = sim.get('v0');
+      const deg = sim.get('angle');
+      const rad = (deg * Math.PI) / 180;
+      time = 0;
+      posX = 60;
+      posY = sim.height - 80 - sim.get('height') * 3;
+      velX = v0 * Math.cos(rad);
+      velY = -v0 * Math.sin(rad);
+      trail.length = 0;
+    }
+
+    // 2. Physics & q5.js Render Loop
+    new Q5('global', sim.canvasHost, (q) => {
+      q.setup = () => {
+        q.createCanvas(sim.width, sim.height);
+        resetApparatus();
+      };
+
+      sim.onResize((w, h) => {
+        q.resizeCanvas(w, h);
+        resetApparatus();
+      });
+
+      sim.onControlChange(() => {
+        if (!isRunning) resetApparatus();
+      });
+
+      q.draw = () => {
+        const speed = sim.speed;
+        const groundY = q.height - 80;
+
+        if (isRunning) {
+          const dt = (1 / 60) * speed;
+          const subSteps = 16;
+          const sdt = dt / subSteps;
+
+          for (let step = 0; step < subSteps; step++) {
+            if (posY < groundY) {
+              velY += gravity * sdt * 3; // scaled gravity
+              posX += velX * sdt * 3;
+              posY += velY * sdt * 3;
+              time += sdt;
+              if (sim.get('showTrail')) {
+                trail.push({ x: posX, y: posY });
+                if (trail.length > 120) trail.shift();
+              }
+            }
+          }
+        }
+
+        // Background
+        q.background(sim.theme.canvasBg);
+
+        // Ground Platform
+        q.fill(sim.theme.subtitle);
+        q.noStroke();
+        q.rect(0, groundY, q.width, q.height - groundY);
+        q.stroke(sim.theme.border);
+        q.strokeWeight(2);
+        q.line(0, groundY, q.width, groundY);
+
+        // Launch Cliff
+        const cliffH = sim.get('height') * 3;
+        if (cliffH > 0) {
+          q.fill(sim.theme.cardBg || '#334155');
+          q.rect(20, groundY - cliffH, 50, cliffH);
+          q.stroke(sim.theme.border);
+          q.line(70, groundY - cliffH, 70, groundY);
+        }
+
+        // Motion Trail
+        if (sim.get('showTrail') && trail.length > 1) {
+          q.noFill();
+          q.stroke(sim.theme.accent);
+          q.strokeWeight(2.5);
+          q.beginShape();
+          for (let p of trail) q.vertex(p.x, p.y);
+          q.endShape();
+        }
+
+        // Projectile Body (Smartboard High Visibility)
+        q.fill(sim.theme.accent);
+        q.stroke(sim.theme.isDark ? 255 : 0);
+        q.strokeWeight(2);
+        q.circle(posX, Math.min(posY, groundY), 24);
+
+        // Vectors
+        if (sim.get('showVectors')) {
+          q.stroke(sim.theme.coral);
+          q.strokeWeight(3);
+          q.line(posX, posY, posX + velX * 0.8, posY + velY * 0.8);
+        }
+
+        // Telemetry HUD Update
+        const currentSpeed = Math.sqrt(velX * velX + velY * velY);
+        sim.setHud({
+          time: `${time.toFixed(2)} s`,
+          range: `${((posX - 60) / 3).toFixed(1)} m`,
+          max_height: `${((groundY - posY) / 3).toFixed(1)} m`,
+          velocity: `${currentSpeed.toFixed(1)} m/s`
+        });
+      };
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Hardware Shader & Compute Benchmark</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* =========================================================================
+       GTK4 / LIBADWAITA DESIGN SYSTEM (GNOME 45+ HIG)
+       ========================================================================= */
+    :root {
+      /* Adwaita Dark (Default) */
+      --adw-window-bg: #242424;
+      --adw-sidebar-bg: #303030;
+      --adw-sidebar-border: rgba(255, 255, 255, 0.08);
+      --adw-card-bg: #383838;
+      --adw-card-border: rgba(255, 255, 255, 0.05);
+      --adw-text-color: #ffffff;
+      --adw-subtitle-color: #9a9996;
+      --adw-accent-color: #3584e4;
+      --adw-accent-badge-bg: rgba(53, 132, 228, 0.2);
+      --adw-accent-badge-text: #62a0ea;
+      --adw-success-color: #2ec27e;
+      --adw-warning-color: #f6d32d;
+      --adw-danger-color: #e01b24;
+      --adw-scale-track-bg: #484848;
+      --adw-scale-track-fill: #3584e4;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      --adw-stepper-bg: #484848;
+      --adw-stepper-text: #ffffff;
+      --adw-btn-primary-bg: #3584e4;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #3e3e3e;
+      --adw-btn-sec-text: #ffffff;
+      --adw-btn-sec-hover: #4a4a4a;
+      --adw-switch-bg: #484848;
+      --adw-switch-active: #3584e4;
+      --adw-canvas-bg: #101014;
+      --adw-canvas-border: rgba(255, 255, 255, 0.08);
+      --adw-axis-color: #5e5c64;
+      --adw-hud-card-bg: rgba(28, 28, 32, 0.94);
+      --adw-hud-card-border: rgba(255, 255, 255, 0.12);
+    }
+
+    body.light-theme {
+      /* Adwaita Light */
+      --adw-window-bg: #fafafa;
+      --adw-sidebar-bg: #ebebeb;
+      --adw-sidebar-border: #deddda;
+      --adw-card-bg: #ffffff;
+      --adw-card-border: #deddda;
+      --adw-text-color: #2e3436;
+      --adw-subtitle-color: #77767b;
+      --adw-accent-color: #1c71d8;
+      --adw-accent-badge-bg: rgba(28, 113, 216, 0.12);
+      --adw-accent-badge-text: #1c71d8;
+      --adw-success-color: #26a269;
+      --adw-warning-color: #e5a50a;
+      --adw-danger-color: #c01c28;
+      --adw-scale-track-bg: #deddda;
+      --adw-scale-track-fill: #1c71d8;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      --adw-stepper-bg: #deddda;
+      --adw-stepper-text: #2e3436;
+      --adw-btn-primary-bg: #1c71d8;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #deddda;
+      --adw-btn-sec-text: #2e3436;
+      --adw-btn-sec-hover: #cfcecb;
+      --adw-switch-bg: #deddda;
+      --adw-switch-active: #1c71d8;
+      --adw-canvas-bg: #f8f9fa;
+      --adw-canvas-border: #deddda;
+      --adw-axis-color: #c0bfbc;
+      --adw-hud-card-bg: rgba(255, 255, 255, 0.96);
+      --adw-hud-card-border: #deddda;
+    }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Cantarell", "Ubuntu", "Segoe UI", Roboto, "Inter", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      background-color: var(--adw-window-bg); color: var(--adw-text-color);
+      user-select: none; transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .sim-layout {
+      display: flex; width: 100%; height: 100%; gap: 6px; padding: 8px;
+      box-sizing: border-box;
+    }
+
+    /* LUCIDE SVG ICON BASE */
+    .lucide-icon {
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
+      stroke: currentColor; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* =========================================================================
+       GTK4 SIDEBAR & DRAGGABLE SPLITTER
+       ========================================================================= */
+    .controls-panel {
+      width: 270px; min-width: 200px; max-width: 500px; flex: 0 0 270px; height: 100%;
+      display: flex; flex-direction: column; gap: 7px;
+      background: var(--adw-sidebar-bg); border: 1px solid var(--adw-sidebar-border);
+      border-radius: 0px; padding: 10px; padding-bottom: 24px;
+      overflow-y: auto; overflow-x: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      scrollbar-width: thin;
+      scrollbar-color: var(--adw-stepper-bg) transparent;
+    }
+
+    .controls-panel::-webkit-scrollbar { width: 6px; }
+    .controls-panel::-webkit-scrollbar-track { background: transparent; }
+    .controls-panel::-webkit-scrollbar-thumb { background: var(--adw-stepper-bg); border-radius: 0px; }
+    .controls-panel::-webkit-scrollbar-thumb:hover { background: var(--adw-btn-sec-hover); }
+
+    /* GTK4 RESIZABLE PANE SPLITTER */
+    .adw-pane-splitter {
+      width: 6px; flex: 0 0 6px; height: 100%; cursor: col-resize;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      user-select: none; touch-action: none; z-index: 20;
+      border-radius: 0px; transition: background-color 0.15s ease;
+    }
+    .adw-pane-splitter:hover, .adw-pane-splitter.dragging {
+      background-color: var(--adw-accent-badge-bg);
+    }
+    .adw-pane-splitter::after {
+      content: ""; width: 2px; height: 32px; border-radius: 0px;
+      background-color: var(--adw-axis-color); transition: background-color 0.15s ease, height 0.15s ease;
+    }
+    .adw-pane-splitter:hover::after, .adw-pane-splitter.dragging::after {
+      background-color: var(--adw-accent-color); height: 48px;
+    }
+
+    /* HEADERBAR */
+    .adw-header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--adw-card-border); padding-bottom: 6px; margin-bottom: 2px;
+    }
+    .adw-header-title-box { display: flex; flex-direction: column; gap: 1px; }
+    .adw-header-title { font-size: 13.5px; font-weight: 700; color: var(--adw-accent-color); letter-spacing: -0.01em; }
+    .adw-header-subtitle { font-size: 10px; font-weight: 500; color: var(--adw-subtitle-color); }
+    
+    .header-actions { display: flex; align-items: center; gap: 5px; }
+    .adw-backend-badge {
+      font-size: 8.5px; font-weight: 700; padding: 2px 6px; border-radius: 0px;
+      background: rgba(46, 194, 126, 0.2); color: var(--adw-success-color);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
+      letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 3px;
+    }
+    
+    .adw-theme-toggle-btn {
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border); color: var(--adw-text-color);
+      font-size: 11px; padding: 4px 8px; border-radius: 0px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+      transition: all 0.15s ease;
+    }
+    .adw-theme-toggle-btn:hover { background: var(--adw-btn-sec-hover); border-color: var(--adw-accent-color); }
+
+    /* VIEW SWITCHER */
+    .adw-view-switcher {
+      display: flex; background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 2px; gap: 2px;
+    }
+    .adw-view-btn {
+      flex: 1; background: transparent; border: none; color: var(--adw-subtitle-color);
+      font-size: 10px; font-weight: 600; padding: 4px 5px; border-radius: 0px;
+      cursor: pointer; transition: all 0.15s ease; text-align: center; white-space: nowrap;
+    }
+    .adw-view-btn.active {
+      background: var(--adw-accent-color); color: #ffffff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2); font-weight: 700;
+    }
+
+    /* PLAYBACK DECK */
+    .adw-deck-card {
+      display: flex; flex-direction: column; gap: 6px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 7px 9px;
+    }
+    .deck-action-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .adw-btn-pill-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    
+    button.adw-btn {
+      background: var(--adw-btn-sec-bg); color: var(--adw-btn-sec-text); border: none;
+      padding: 5px 8px; font-size: 10.5px; font-weight: 600; border-radius: 0px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease;
+    }
+    button.adw-btn:hover { background: var(--adw-btn-sec-hover); }
+    button.adw-btn.primary { background: var(--adw-btn-primary-bg); color: var(--adw-btn-primary-text); }
+    button.adw-btn.restart-pill {
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-color);
+      border: 1px solid rgba(53, 132, 228, 0.3);
+    }
+    button.adw-btn.restart-pill:hover { background: var(--adw-accent-color); color: #ffffff; }
+
+    /* ACTION ROWS & SLIDERS */
+    .adw-action-row {
+      display: flex; flex-direction: column; gap: 3px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 6px 9px; transition: all 0.15s ease;
+    }
+    .adw-row-header {
+      display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 500;
+    }
+    .adw-row-title-desc { display: flex; flex-direction: column; gap: 1px; }
+    .adw-row-subtitle { font-size: 9.5px; color: var(--adw-subtitle-color); font-weight: 400; }
+    .adw-value-badge {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", ui-monospace, monospace;
+      font-size: 10.5px; font-weight: 700; color: var(--adw-accent-badge-text);
+      background: var(--adw-accent-badge-bg); padding: 1px 6px; border-radius: 0px;
+    }
+
+    .adw-scale-slider {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 0px;
+      background: var(--adw-scale-track-bg); outline: none; cursor: pointer; margin-top: 3px;
+      transition: background 0.05s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 17px; height: 17px; border-radius: 0px;
+      background: var(--adw-scale-thumb-bg); box-shadow: var(--adw-scale-thumb-shadow);
+      cursor: pointer; transition: transform 0.1s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    .adw-chip-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+    .adw-chip-btn {
+      background: transparent; border: 1px solid var(--adw-sidebar-border); color: var(--adw-subtitle-color);
+      font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 0px;
+      cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 3px;
+    }
+    .adw-chip-btn.active {
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-color); border-color: var(--adw-accent-color);
+    }
+
+    .adw-switch-item {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10.5px; font-weight: 500;
+    }
+    .adw-switch {
+      position: relative; display: inline-block; width: 30px; height: 17px; flex-shrink: 0;
+    }
+    .adw-switch input { opacity: 0; width: 0; height: 0; }
+    .adw-switch-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--adw-switch-bg); transition: .2s; border-radius: 0px;
+    }
+    .adw-switch-slider:before {
+      position: absolute; content: ""; height: 13px; width: 13px; left: 2px; bottom: 2px;
+      background-color: white; transition: .2s; border-radius: 0px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    input:checked + .adw-switch-slider { background-color: var(--adw-switch-active); }
+    input:checked + .adw-switch-slider:before { transform: translateX(13px); }
+
+    /* =========================================================================
+       CANVAS STAGE & HARDWARE WEBGL2 PIPELINE
+       ========================================================================= */
+    .canvas-container {
+      flex: 1; height: 100%; min-width: 0; min-height: 0; position: relative;
+      background: var(--adw-canvas-bg); border: 1px solid var(--adw-canvas-border);
+      border-radius: 0px; overflow: hidden; transition: background 0.2s ease, border-color 0.2s ease;
+      touch-action: none; cursor: crosshair;
+    }
+    canvas#glCanvas { width: 100%; height: 100%; display: block; }
+
+    /* FLOATING HARDWARE TELEMETRY CARD */
+    .hardware-telemetry-hud {
+      position: absolute; top: 12px; left: 12px; z-index: 10;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0px; padding: 8px 12px; min-width: 220px;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
+      font-size: 10px; display: flex; flex-direction: column; gap: 4px; pointer-events: none;
+    }
+    .hud-title-row {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 3px; margin-bottom: 2px;
+      font-size: 10.5px; font-weight: 700; color: var(--adw-accent-color);
+    }
+    .hud-stat-row { display: flex; justify-content: space-between; align-items: center; }
+    .hud-stat-label { color: var(--adw-subtitle-color); font-weight: 500; }
+    .hud-stat-val { font-weight: 700; color: var(--adw-text-color); }
+    .hud-stat-val.fps-green { color: var(--adw-success-color); }
+    .hud-stat-val.fps-yellow { color: var(--adw-warning-color); }
+    .hud-stat-val.fps-red { color: var(--adw-danger-color); }
+
+    /* GPU DEVICE INFO BADGE */
+    .gpu-device-pill {
+      position: absolute; top: 12px; right: 12px; z-index: 10;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0px; padding: 4px 8px; font-size: 9.5px; font-weight: 600;
+      color: var(--adw-subtitle-color); backdrop-filter: blur(8px);
+      max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+      .sim-layout { flex-direction: column; }
+      .controls-panel { width: 100%; min-width: 100%; max-width: 100%; flex: 0 0 auto; height: auto; max-height: 48%; }
+      .adw-pane-splitter { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sim-layout">
+    <!-- LEFT CONTROLS PANEL -->
+    <div class="controls-panel">
+      <!-- 1. HEADERBAR & THEME SWITCHER -->
+      <div class="adw-header-bar">
+        <div class="adw-header-title-box">
+          <div class="adw-header-title">GPU Shader Compute Lab</div>
+          <div class="adw-header-subtitle">Hardware WebGL2 & WebGPU Shader Engine</div>
+        </div>
+        <div class="header-actions">
+          <div class="adw-backend-badge" id="backendBadge">⚡ WebGL2 GPU</div>
+          <button id="themeToggleBtn" class="adw-theme-toggle-btn" onclick="toggleTheme()" title="Switch Light / Dark Theme">
+            <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. BENCHMARK MODE SWITCHER -->
+      <div class="adw-view-switcher">
+        <button class="adw-view-btn active" id="modeGalaxy" onclick="setBenchmarkMode('galaxy', this)">Galaxy Core</button>
+        <button class="adw-view-btn" id="modeGas" onclick="setBenchmarkMode('gas', this)">Kinetic Plasma</button>
+        <button class="adw-view-btn" id="modeDipole" onclick="setBenchmarkMode('dipole', this)">Coulomb Dipole</button>
+      </div>
+
+      <!-- 3. PLAYBACK DECK -->
+      <div class="adw-deck-card">
+        <div class="deck-action-row">
+          <div class="adw-btn-pill-group">
+            <button id="playBtn" class="adw-btn primary" onclick="togglePlay()">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span>Play</span>
+            </button>
+            <button id="restartBtn" class="adw-btn restart-pill" onclick="reseedParticles()" title="Reseed particle field">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reseed</span>
+            </button>
+            <button class="adw-btn" onclick="resetToDefaults()" title="Reset all sliders">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              <span>Defaults</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:3px;margin-top:2px;">
+          <div class="adw-row-header">
+            <span style="font-size:10.5px;color:var(--adw-subtitle-color);font-weight:500;">Simulation Speed:</span>
+            <span id="speedVal" class="adw-value-badge">1.00x</span>
+          </div>
+          <input type="range" id="speedSlider" class="adw-scale-slider" min="0.1" max="3.0" step="0.05" value="1.0" oninput="setSpeed(this.value)">
+        </div>
+      </div>
+
+      <!-- 4. MASSIVE GPU PARTICLE STRESS CONTROLS (UP TO 100,000+) -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>GPU Particle Load (N)</span>
+            <span class="adw-row-subtitle">Single-draw GPU point batching</span>
+          </div>
+          <span id="particleCountBadge" class="adw-value-badge">25,000</span>
+        </div>
+        <input type="range" id="particleSlider" class="adw-scale-slider" min="1000" max="100000" step="1000" value="25000" oninput="setParticleCount(this.value)">
+        
+        <div class="adw-chip-row">
+          <button class="adw-chip-btn" onclick="setParticlePreset(5000)">5k Light</button>
+          <button class="adw-chip-btn active" id="pChip25k" onclick="setParticlePreset(25000)">25k Mid</button>
+          <button class="adw-chip-btn" onclick="setParticlePreset(50000)">50k Heavy</button>
+          <button class="adw-chip-btn" onclick="setParticlePreset(100000)">100k Extreme</button>
+        </div>
+      </div>
+
+      <!-- 5. ATTRACTOR & PHYSICAL FORCE FIELD -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Attractor Strength (G)</span>
+            <span class="adw-row-subtitle">Central vortex core strength</span>
+          </div>
+          <span id="gValBadge" class="adw-value-badge">2.00</span>
+        </div>
+        <input type="range" id="gSlider" class="adw-scale-slider" min="0.1" max="5.0" step="0.1" value="2.0" oninput="updateParams()">
+      </div>
+
+      <!-- 6. GPU SHADER GRAPHICS CONTROLS -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>GPU Point Size</span>
+          </div>
+          <span id="sizeValBadge" class="adw-value-badge">3.0 px</span>
+        </div>
+        <input type="range" id="sizeSlider" class="adw-scale-slider" min="1.0" max="8.0" step="0.5" value="3.0" oninput="updateParams()">
+      </div>
+
+      <!-- 7. COLORMAP SELECTOR -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <span>Shader Thermal Colormap:</span>
+        </div>
+        <div class="adw-chip-row">
+          <button class="adw-chip-btn active" id="palVelocity" onclick="setColorPalette('velocity')">Thermal Velocity</button>
+          <button class="adw-chip-btn" id="palNeon" onclick="setColorPalette('neon')">Cyberpunk Neon</button>
+          <button class="adw-chip-btn" id="palSolar" onclick="setColorPalette('solar')">Solar Core</button>
+        </div>
+      </div>
+
+      <!-- 8. TOGGLE SWITCHES -->
+      <div class="adw-action-row">
+        <div class="adw-switch-item">
+          <span>Interactive Mouse Attractor</span>
+          <label class="adw-switch">
+            <input type="checkbox" id="mouseAttractorToggle" checked>
+            <span class="adw-switch-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAGGABLE RESIZABLE SIDEBAR SPLITTER -->
+    <div class="adw-pane-splitter" id="paneSplitter" title="Drag to resize sidebar (Double-click to reset)"></div>
+
+    <!-- RIGHT CANVAS STAGE -->
+    <div class="canvas-container" id="canvasStageContainer">
+      <canvas id="glCanvas"></canvas>
+
+      <!-- FLOATING HARDWARE TELEMETRY CARD -->
+      <div class="hardware-telemetry-hud" id="telemetryHud">
+        <div class="hud-title-row">
+          <span>⚡ GPU Pipeline Telemetry</span>
+          <span id="drawCallsBadge" style="color:var(--adw-success-color);">1 Draw Call</span>
+        </div>
+        <div class="hud-stat-row">
+          <span class="hud-stat-label">Frame Rate:</span>
+          <span class="hud-stat-val fps-green" id="fpsStat">60.0 FPS</span>
+        </div>
+        <div class="hud-stat-row">
+          <span class="hud-stat-label">Frame Latency:</span>
+          <span class="hud-stat-val" id="frameTimeStat">16.6 ms</span>
+        </div>
+        <div class="hud-stat-row">
+          <span class="hud-stat-label">Active Particles:</span>
+          <span class="hud-stat-val" id="particlesStat">25,000</span>
+        </div>
+        <div class="hud-stat-row">
+          <span class="hud-stat-label">Compute Throughput:</span>
+          <span class="hud-stat-val" id="throughputStat">25.0 MCalcs/s</span>
+        </div>
+      </div>
+
+      <!-- GPU DEVICE NAME BADGE -->
+      <div class="gpu-device-pill" id="gpuDeviceName" title="Detected Graphics Hardware">
+        Hardware: Detecting GPU...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. BIDIRECTIONAL HOST TELEMETRY BRIDGE ---
+    let hostDpr = window.devicePixelRatio || 1;
+    let isLightTheme = false;
+    let isRunning = false;
+
+    window.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === 'HOST_FRAME_DATA') {
+        if (e.data.device && e.data.device.dpr) {
+          hostDpr = e.data.device.dpr;
+          resizeCanvas();
+        }
+        if (e.data.theme) {
+          isLightTheme = (e.data.theme === 'light');
+          document.body.classList.toggle('light-theme', isLightTheme);
+          updateThemeIcon();
+          updateAllSliderFills();
+        }
+      }
+    });
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'SIM_READY', id: 'gpu-compute-benchmark' }, '*');
+      }
+    } catch(err) {}
+
+    // --- 2. HARDWARE WEBGL2 SHADER PIPELINE INITIALIZATION ---
+    const canvas = document.getElementById('glCanvas');
+    const container = document.getElementById('canvasStageContainer');
+    const gl = canvas.getContext('webgl2', { 
+      alpha: false, 
+      antialias: false, 
+      depth: false,
+      powerPreference: 'high-performance' 
+    }) || canvas.getContext('webgl');
+
+    let canvasWidth = 800;
+    let canvasHeight = 600;
+
+    // Detect GPU Hardware Name
+    function detectGPUHardware() {
+      const el = document.getElementById('gpuDeviceName');
+      if (!gl || !el) return;
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) {
+        const renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+        el.innerText = `GPU: ${renderer}`;
+        el.title = `Active Graphics Hardware: ${renderer}`;
+      } else {
+        el.innerText = 'GPU: Hardware Accelerated WebGL2';
+      }
+    }
+
+    // Vertex Shader: Coordinate transformation & speed pass-through
+    const vsSource = `#version 300 es
+      precision highp float;
+      in vec2 a_position;
+      in float a_speed;
+      in float a_charge;
+
+      uniform vec2 u_resolution;
+      uniform float u_pointSize;
+      
+      out float v_speed;
+      out float v_charge;
+
+      void main() {
+        // Convert from pixel space [0, resolution] to clip space [-1.0, 1.0]
+        vec2 zeroToOne = a_position / u_resolution;
+        vec2 zeroToTwo = zeroToOne * 2.0;
+        vec2 clipSpace = zeroToTwo - 1.0;
+
+        gl_Position = vec4(clipSpace * vec2(1.0, -1.0), 0.0, 1.0);
+        gl_PointSize = u_pointSize;
+        v_speed = a_speed;
+        v_charge = a_charge;
+      }
+    `;
+
+    // Fragment Shader: Antialiased glow point circle & thermal colormapping
+    const fsSource = `#version 300 es
+      precision highp float;
+      in float v_speed;
+      in float v_charge;
+      uniform int u_palette;
+      uniform int u_isLight;
+      out vec4 outColor;
+
+      void main() {
+        // Render smooth circular antialiased point sprite
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float dist = length(coord);
+        if (dist > 0.5) discard;
+        float alpha = smoothstep(0.5, 0.15, dist);
+
+        vec3 color;
+        if (u_palette == 1) {
+          // Cyberpunk Neon
+          color = (u_isLight == 1) ? vec3(0.0, 0.5, 0.8) : vec3(0.0, 0.95, 1.0);
+        } else if (u_palette == 2) {
+          // Solar Flare Core
+          color = (u_isLight == 1) ? vec3(0.85, 0.4, 0.0) : vec3(1.0, 0.6, 0.1);
+        } else {
+          // Thermal Velocity Heatmap (Blue -> Emerald -> Amber -> Red)
+          float norm = clamp(v_speed / 200.0, 0.0, 1.0);
+          if (norm < 0.33) {
+            color = (u_isLight == 1) ? vec3(0.11, 0.44, 0.85) : vec3(0.21, 0.52, 0.90);
+          } else if (norm < 0.66) {
+            color = (u_isLight == 1) ? vec3(0.15, 0.64, 0.41) : vec3(0.18, 0.76, 0.49);
+          } else if (norm < 0.88) {
+            color = (u_isLight == 1) ? vec3(0.90, 0.65, 0.04) : vec3(0.96, 0.83, 0.18);
+          } else {
+            color = (u_isLight == 1) ? vec3(0.75, 0.11, 0.16) : vec3(0.88, 0.11, 0.14);
+          }
+        }
+
+        outColor = vec4(color, alpha * 0.9);
+      }
+    `;
+
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Program link error:', gl.getProgramInfoLog(program));
+    }
+
+    const aPosLoc = gl.getAttribLocation(program, 'a_position');
+    const aSpeedLoc = gl.getAttribLocation(program, 'a_speed');
+    const aChargeLoc = gl.getAttribLocation(program, 'a_charge');
+    const uResLoc = gl.getUniformLocation(program, 'u_resolution');
+    const uSizeLoc = gl.getUniformLocation(program, 'u_pointSize');
+    const uPaletteLoc = gl.getUniformLocation(program, 'u_palette');
+    const uIsLightLoc = gl.getUniformLocation(program, 'u_isLight');
+
+    // --- 3. HIGH-CAPACITY GPU BUFFERS (UP TO 100,000 PARTICLES) ---
+    const MAX_PARTICLES = 100000;
+    let particleCount = 25000;
+
+    const pX = new Float32Array(MAX_PARTICLES);
+    const pY = new Float32Array(MAX_PARTICLES);
+    const pVx = new Float32Array(MAX_PARTICLES);
+    const pVy = new Float32Array(MAX_PARTICLES);
+    const pCharge = new Float32Array(MAX_PARTICLES);
+    const pSpeed = new Float32Array(MAX_PARTICLES);
+
+    // Interleaved GPU Vertex Buffer [posX, posY, speed, charge]
+    const gpuVboData = new Float32Array(MAX_PARTICLES * 4);
+    const vbo = gl.createBuffer();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, gpuVboData.byteLength, gl.DYNAMIC_DRAW);
+
+    // Parameters
+    let currentMode = 'galaxy';
+    let currentPalette = 'velocity';
+    let speedMultiplier = 1.0;
+    let gStrength = 2.0;
+    let particleRadius = 3.0;
+    let mousePos = { x: 0, y: 0, active: false };
+
+    // Rolling Performance Metrics
+    let lastFrameTime = performance.now();
+    let frameTimes = new Float32Array(60);
+    let frameTimeIndex = 0;
+
+    function reseedParticles() {
+      const cx = canvasWidth / 2;
+      const cy = canvasHeight / 2;
+
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        if (currentMode === 'galaxy') {
+          const r = 20 + Math.random() * Math.min(cx, cy) * 0.9;
+          const theta = Math.random() * Math.PI * 2;
+          pX[i] = cx + r * Math.cos(theta);
+          pY[i] = cy + r * Math.sin(theta);
+          const vOrb = Math.sqrt((gStrength * 2800) / r);
+          pVx[i] = -vOrb * Math.sin(theta) + (Math.random() - 0.5) * 4;
+          pVy[i] = vOrb * Math.cos(theta) + (Math.random() - 0.5) * 4;
+        } else if (currentMode === 'gas') {
+          pX[i] = 10 + Math.random() * (canvasWidth - 20);
+          pY[i] = 10 + Math.random() * (canvasHeight - 20);
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 40 + Math.random() * 140;
+          pVx[i] = speed * Math.cos(angle);
+          pVy[i] = speed * Math.sin(angle);
+        } else if (currentMode === 'dipole') {
+          pX[i] = Math.random() * canvasWidth;
+          pY[i] = Math.random() * canvasHeight;
+          pCharge[i] = Math.random() > 0.5 ? 1 : -1;
+          pVx[i] = (Math.random() - 0.5) * 25;
+          pVy[i] = (Math.random() - 0.5) * 25;
+        }
+        pSpeed[i] = Math.hypot(pVx[i], pVy[i]);
+      }
+    }
+
+    // UI Sliders & Interactivity
+    function updateSliderFill(slider) {
+      if (!slider) return;
+      const min = parseFloat(slider.min || 0);
+      const max = parseFloat(slider.max || 100);
+      const val = parseFloat(slider.value);
+      const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+      slider.style.background = `linear-gradient(to right, var(--adw-scale-track-fill) 0%, var(--adw-scale-track-fill) ${pct}%, var(--adw-scale-track-bg) ${pct}%, var(--adw-scale-track-bg) 100%)`;
+    }
+
+    function updateAllSliderFills() {
+      document.querySelectorAll('.adw-scale-slider').forEach(updateSliderFill);
+    }
+
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      btn.innerHTML = isLightTheme 
+        ? `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`
+        : `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+    }
+
+    function toggleTheme() {
+      isLightTheme = !isLightTheme;
+      document.body.classList.toggle('light-theme', isLightTheme);
+      updateThemeIcon();
+      updateAllSliderFills();
+    }
+
+    function togglePlay() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('playBtn');
+      if (btn) {
+        btn.innerHTML = isRunning 
+          ? `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg><span>Pause</span>`
+          : `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg><span>Play</span>`;
+      }
+      lastFrameTime = performance.now();
+    }
+
+    function setSpeed(val) {
+      speedMultiplier = parseFloat(val);
+      document.getElementById('speedVal').innerText = speedMultiplier.toFixed(2) + 'x';
+      updateSliderFill(document.getElementById('speedSlider'));
+    }
+
+    function setParticleCount(val) {
+      particleCount = parseInt(val, 10);
+      document.getElementById('particleCountBadge').innerText = particleCount.toLocaleString();
+      document.querySelectorAll('.adw-chip-btn').forEach(b => {
+        if (b.id && b.id.startsWith('pChip')) b.classList.remove('active');
+      });
+      updateSliderFill(document.getElementById('particleSlider'));
+    }
+
+    function setParticlePreset(count) {
+      particleCount = count;
+      const s = document.getElementById('particleSlider');
+      s.value = count;
+      document.getElementById('particleCountBadge').innerText = count.toLocaleString();
+      document.querySelectorAll('.adw-chip-btn').forEach(b => {
+        if (b.id && b.id.startsWith('pChip')) b.classList.remove('active');
+      });
+      if (count === 25000) document.getElementById('pChip25k')?.classList.add('active');
+      updateSliderFill(s);
+    }
+
+    function updateParams() {
+      gStrength = parseFloat(document.getElementById('gSlider').value);
+      particleRadius = parseFloat(document.getElementById('sizeSlider').value);
+      document.getElementById('gValBadge').innerText = gStrength.toFixed(2);
+      document.getElementById('sizeValBadge').innerText = particleRadius.toFixed(1) + ' px';
+      updateAllSliderFills();
+    }
+
+    function setBenchmarkMode(mode, btn) {
+      currentMode = mode;
+      document.querySelectorAll('.adw-view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      reseedParticles();
+    }
+
+    function setColorPalette(pal) {
+      currentPalette = pal;
+      document.getElementById('palVelocity').classList.toggle('active', pal === 'velocity');
+      document.getElementById('palNeon').classList.toggle('active', pal === 'neon');
+      document.getElementById('palSolar').classList.toggle('active', pal === 'solar');
+    }
+
+    function resetToDefaults() {
+      document.getElementById('particleSlider').value = 25000;
+      document.getElementById('gSlider').value = 2.0;
+      document.getElementById('sizeSlider').value = 3.0;
+      document.getElementById('speedSlider').value = 1.0;
+      particleCount = 25000;
+      speedMultiplier = 1.0;
+      document.getElementById('particleCountBadge').innerText = '25,000';
+      document.getElementById('speedVal').innerText = '1.00x';
+      updateParams();
+      reseedParticles();
+    }
+
+    // Pointer Interactivity (Attractor Well)
+    container.addEventListener('pointerdown', (e) => {
+      const rect = container.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+      mousePos.active = true;
+    });
+
+    container.addEventListener('pointermove', (e) => {
+      const rect = container.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+    });
+
+    const stopMouse = () => { mousePos.active = false; };
+    container.addEventListener('pointerup', stopMouse);
+    container.addEventListener('pointerleave', stopMouse);
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      canvasWidth = rect.width;
+      canvasHeight = rect.height;
+      const dpr = hostDpr || window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvasWidth * dpr);
+      canvas.height = Math.round(canvasHeight * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => resizeCanvas());
+      ro.observe(container);
+    } else {
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    // --- RESIZABLE SIDEBAR SPLITTER LOGIC ---
+    const splitter = document.getElementById('paneSplitter');
+    const controlsPanel = document.querySelector('.controls-panel');
+    let isResizing = false;
+
+    if (splitter && controlsPanel) {
+      splitter.addEventListener('pointerdown', (e) => {
+        isResizing = true;
+        splitter.classList.add('dragging');
+        splitter.setPointerCapture(e.pointerId);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      splitter.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        const containerRect = document.querySelector('.sim-layout').getBoundingClientRect();
+        const newWidth = Math.max(200, Math.min(500, e.clientX - containerRect.left - 3));
+        controlsPanel.style.width = newWidth + 'px';
+        controlsPanel.style.minWidth = newWidth + 'px';
+        controlsPanel.style.maxWidth = newWidth + 'px';
+        controlsPanel.style.flex = `0 0 ${newWidth}px`;
+      });
+
+      const stopResize = (e) => {
+        if (!isResizing) return;
+        isResizing = false;
+        splitter.classList.remove('dragging');
+        try { splitter.releasePointerCapture(e.pointerId); } catch(err) {}
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      splitter.addEventListener('pointerup', stopResize);
+      splitter.addEventListener('pointercancel', stopResize);
+
+      splitter.addEventListener('dblclick', () => {
+        controlsPanel.style.width = '270px';
+        controlsPanel.style.minWidth = '270px';
+        controlsPanel.style.maxWidth = '270px';
+        controlsPanel.style.flex = '0 0 270px';
+      });
+    }
+
+    // --- 4. HIGH-PERFORMANCE GPU DRAW & COMPUTATION LOOP ---
+    function draw() {
+      const now = performance.now();
+      const frameDeltaMs = now - lastFrameTime;
+      let dt_real = frameDeltaMs / 1000;
+      lastFrameTime = now;
+
+      // Update Rolling Performance Metrics
+      frameTimes[frameTimeIndex] = frameDeltaMs;
+      frameTimeIndex = (frameTimeIndex + 1) % frameTimes.length;
+      
+      let sumTime = 0;
+      for (let i = 0; i < frameTimes.length; i++) sumTime += frameTimes[i];
+      const avgFrameTime = sumTime / frameTimes.length;
+      const currentFps = Math.min(240, 1000 / Math.max(1, avgFrameTime));
+      const mCalcs = ((particleCount * 60) / 1000000).toFixed(1);
+
+      // Update HUD Elements
+      const fpsEl = document.getElementById('fpsStat');
+      if (fpsEl) {
+        fpsEl.innerText = `${currentFps.toFixed(1)} FPS`;
+        fpsEl.className = 'hud-stat-val ' + (currentFps >= 55 ? 'fps-green' : (currentFps >= 35 ? 'fps-yellow' : 'fps-red'));
+      }
+      document.getElementById('frameTimeStat').innerText = `${avgFrameTime.toFixed(2)} ms`;
+      document.getElementById('particlesStat').innerText = particleCount.toLocaleString();
+      document.getElementById('throughputStat').innerText = `${mCalcs} MCalcs/s`;
+
+      if (dt_real > 0.1) dt_real = 0.1;
+
+      // Physics Integration Loop
+      if (isRunning) {
+        const dt = dt_real * speedMultiplier;
+        const cx = canvasWidth / 2;
+        const cy = canvasHeight / 2;
+        const interactiveMouse = document.getElementById('mouseAttractorToggle').checked && mousePos.active;
+
+        for (let i = 0; i < particleCount; i++) {
+          let fx = 0;
+          let fy = 0;
+
+          if (currentMode === 'galaxy') {
+            const dx = cx - pX[i];
+            const dy = cy - pY[i];
+            const distSq = dx * dx + dy * dy + 350;
+            const dist = Math.sqrt(distSq);
+            const force = (gStrength * 280000) / distSq;
+            fx += force * (dx / dist);
+            fy += force * (dy / dist);
+
+            if (interactiveMouse) {
+              const mdx = mousePos.x - pX[i];
+              const mdy = mousePos.y - pY[i];
+              const mDistSq = mdx * mdx + mdy * mdy + 250;
+              const mDist = Math.sqrt(mDistSq);
+              const mForce = (gStrength * 400000) / mDistSq;
+              fx += mForce * (mdx / mDist);
+              fy += mForce * (mdy / mDist);
+            }
+          } else if (currentMode === 'gas') {
+            if (pX[i] <= 5 && pVx[i] < 0) pVx[i] = -pVx[i];
+            if (pX[i] >= canvasWidth - 5 && pVx[i] > 0) pVx[i] = -pVx[i];
+            if (pY[i] <= 5 && pVy[i] < 0) pVy[i] = -pVy[i];
+            if (pY[i] >= canvasHeight - 5 && pVy[i] > 0) pVy[i] = -pVy[i];
+
+            if (interactiveMouse) {
+              const mdx = mousePos.x - pX[i];
+              const mdy = mousePos.y - pY[i];
+              const mDistSq = mdx * mdx + mdy * mdy + 100;
+              if (mDistSq < 20000) {
+                const mDist = Math.sqrt(mDistSq);
+                fx -= (12000 / mDistSq) * (mdx / mDist);
+                fy -= (12000 / mDistSq) * (mdy / mDist);
+              }
+            }
+          } else if (currentMode === 'dipole') {
+            const p1x = cx - 140; const p1y = cy;
+            const p2x = cx + 140; const p2y = cy;
+
+            const d1x = p1x - pX[i]; const d1y = p1y - pY[i];
+            const r1Sq = d1x * d1x + d1y * d1y + 300;
+            const f1 = (pCharge[i] * 140000) / r1Sq;
+            fx += f1 * (d1x / Math.sqrt(r1Sq));
+            fy += f1 * (d1y / Math.sqrt(r1Sq));
+
+            const d2x = p2x - pX[i]; const d2y = p2y - pY[i];
+            const r2Sq = d2x * d2x + d2y * d2y + 300;
+            const f2 = (-pCharge[i] * 140000) / r2Sq;
+            fx += f2 * (d2x / Math.sqrt(r2Sq));
+            fy += f2 * (d2y / Math.sqrt(r2Sq));
+          }
+
+          pVx[i] += fx * dt;
+          pVy[i] += fy * dt;
+          pX[i] += pVx[i] * dt;
+          pY[i] += pVy[i] * dt;
+          pSpeed[i] = Math.hypot(pVx[i], pVy[i]);
+
+          // Pack into Interleaved GPU Buffer
+          const offset = i * 4;
+          gpuVboData[offset] = pX[i];
+          gpuVboData[offset + 1] = pY[i];
+          gpuVboData[offset + 2] = pSpeed[i];
+          gpuVboData[offset + 3] = pCharge[i];
+        }
+      } else {
+        // Initial static frame packing
+        for (let i = 0; i < particleCount; i++) {
+          const offset = i * 4;
+          gpuVboData[offset] = pX[i];
+          gpuVboData[offset + 1] = pY[i];
+          gpuVboData[offset + 2] = pSpeed[i];
+          gpuVboData[offset + 3] = pCharge[i];
+        }
+      }
+
+      // --- GPU HARDWARE RENDER PASS (1 SINGLE DRAW CALL) ---
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // Additive luminous glow blending
+
+      if (isLightTheme) {
+        gl.clearColor(0.97, 0.97, 0.98, 1.0);
+      } else {
+        gl.clearColor(0.06, 0.06, 0.08, 1.0);
+      }
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(program);
+
+      // Set Shader Uniforms
+      gl.uniform2f(uResLoc, canvasWidth, canvasHeight);
+      gl.uniform1f(uSizeLoc, particleRadius * (hostDpr || window.devicePixelRatio || 1));
+      gl.uniform1i(uPaletteLoc, currentPalette === 'neon' ? 1 : (currentPalette === 'solar' ? 2 : 0));
+      gl.uniform1i(uIsLightLoc, isLightTheme ? 1 : 0);
+
+      // Stream Interleaved VBO data to GPU memory
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, gpuVboData.subarray(0, particleCount * 4));
+
+      // Vertex Attribute Pointers (Stride = 16 bytes)
+      gl.enableVertexAttribArray(aPosLoc);
+      gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 16, 0);
+
+      gl.enableVertexAttribArray(aSpeedLoc);
+      gl.vertexAttribPointer(aSpeedLoc, 1, gl.FLOAT, false, 16, 8);
+
+      gl.enableVertexAttribArray(aChargeLoc);
+      gl.vertexAttribPointer(aChargeLoc, 1, gl.FLOAT, false, 16, 12);
+
+      // ⚡ SINGLE GPU DRAW CALL FOR UP TO 100,000 PARTICLES!
+      gl.drawArrays(gl.POINTS, 0, particleCount);
+
+      requestAnimationFrame(draw);
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      reseedParticles();
+      detectGPUHardware();
+      document.querySelectorAll('.adw-scale-slider').forEach(slider => {
+        slider.addEventListener('input', () => updateSliderFill(slider));
+      });
+      updateParams();
+      updateThemeIcon();
+      lastFrameTime = performance.now();
+      requestAnimationFrame(draw);
+    });
+  </script>
+</body>
+</html>

@@ -1,17 +1,20 @@
 1:"$Sreact.fragment"
-a:I[68027,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"default",1]
-:HL["/smartboard/_next/static/chunks/1z6f30216d5ir.css","style"]
-:HL["/smartboard/_next/static/chunks/0ws8vg54_tlwu.css","style"]
+b:I[68027,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"default",1]
+:HL["/smartboard/_next/static/chunks/3bnt9llm2178e.css","style"]
+:HL["/smartboard/_next/static/chunks/3rrv370y44amf.css","style"]
 :HC["/",""]
-:HL["/smartboard/_next/static/chunks/3cb0s2ygi_oop.css","style"]
-2:T456,
+:HL["/smartboard/_next/static/chunks/34o5epta4u8qh.css","style"]
+2:T574,
               window.addEventListener('error', function(e) {
+                var msg = (e && e.message) || '';
                 var target = e.target || {};
-                if (target.tagName === 'SCRIPT' && (target.src || '').includes('/_next/static/chunks/')) {
-                  console.warn('[ChunkRecovery] Stale chunk 404 detected:', target.src);
-                  var hasRetried = sessionStorage.getItem('chunk_retry_' + target.src);
+                var isChunk404 = target.tagName === 'SCRIPT' && (target.src || '').includes('/_next/static/chunks/');
+                var isModuleFactoryError = msg.includes('module factory is not available') || msg.includes('was instantiated because it was required');
+                if (isChunk404 || isModuleFactoryError) {
+                  console.warn('[ChunkRecovery] Stale chunk / module mismatch detected:', msg || target.src);
+                  var hasRetried = sessionStorage.getItem('chunk_recovery_retried');
                   if (!hasRetried) {
-                    sessionStorage.setItem('chunk_retry_' + target.src, '1');
+                    sessionStorage.setItem('chunk_recovery_retried', '1');
                     if (window.caches) {
                       caches.keys().then(function(names) {
                         names.forEach(function(n) { caches.delete(n); });
@@ -26,29 +29,57 @@ a:I[68027,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next
                   }
                 }
               }, true);
-            8:X
-0:{"P":null,"c":["","_","_","_",""],"q":"","i":false,"f":[[["",{"children":[["classId","_","d",["login","signup"]],{"children":[["chapterId","_","d",[]],{"children":[["topicId","_","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/1z6f30216d5ir.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/0ws8vg54_tlwu.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/smartboard/_next/static/chunks/3fntmmi971322.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"/smartboard/_next/static/chunks/1by2di3b_2t_l.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"/smartboard/_next/static/chunks/3uggk_-qlp5aa.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"roboto_4d58ff1d-module__pznC1G__variable","suppressHydrationWarning":true,"children":[["$","head",null,{"children":[["$","script",null,{"id":"chunk-recovery","dangerouslySetInnerHTML":{"__html":"$2"}}],["$","script",null,{"id":"theme-initializer","dangerouslySetInnerHTML":{"__html":"\n              (function() {\n                try {\n                  var raw = localStorage.getItem(\"app_teaching_settings_v1\");\n                  var s = raw ? JSON.parse(raw) : null;\n                  var theme = s && s.themeMode ? s.themeMode : 'light';\n                  if (theme === 'system') {\n                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n                  }\n                  document.documentElement.setAttribute('data-theme', theme);\n                  var scale = s && s.uiScale ? s.uiScale : 100;\n                  document.documentElement.style.setProperty('--ui-scale', (scale / 100).toString());\n                  document.documentElement.style.fontSize = (14 * (scale / 100)).toFixed(1) + 'px';\n                } catch(e) {}\n              })();\n            "}}],["$","script",null,{"id":"sw-initializer","dangerouslySetInnerHTML":{"__html":"\n              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {\n                window.addEventListener('load', function() {\n                  var rawBasePath = \"/smartboard\";\n                  var basePath = rawBasePath.startsWith('/') ? rawBasePath : (rawBasePath ? '/' + rawBasePath : '');\n                  var swUrl = (basePath || '') + '/sw.js';\n                  var swScope = basePath ? (basePath + '/') : '/';\n                  navigator.serviceWorker.register(swUrl, { scope: swScope }).catch(function(err) {\n                    console.debug('[SW] Registration notice:', err);\n                  });\n                });\n              }\n            "}}]]}],"$L3"]}]]}],{"children":["$L4",{"children":["$L5",{"children":["$L6",{"children":["$L7",{},null,false,null]},null,false,"$8"]},null,false,"$8"]},null,false,"$8"]},null,false,null],"$L9",false]],"m":"$undefined","G":["$a",["$Lb","$Lc"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"opzEHeHpOPX3KkxFpK0d8"}
-d:I[57951,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"AuthProvider"]
-e:I[47451,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"AuthGate"]
-f:I[39756,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"default"]
-10:I[37457,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"default"]
-11:I[29306,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js","/smartboard/_next/static/chunks/16wfzw2xx-ry9.js"],"default"]
-13:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"OutletBoundary"]
-14:"$Sreact.suspense"
-16:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"ViewportBoundary"]
-18:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"MetadataBoundary"]
-3:["$","body",null,{"className":"roboto_4d58ff1d-module__pznC1G__className","children":["$","$Ld",null,{"children":["$","$Le",null,{"children":["$","$Lf",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L10",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","$L11",null,{}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]}]
-4:["$","$1","c",{"children":[null,["$","$Lf",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L10",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
-5:["$","$1","c",{"children":[null,["$","$Lf",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L10",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
-6:["$","$1","c",{"children":[null,["$","$Lf",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L10",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
-7:["$","$1","c",{"children":["$L12",[["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/3cb0s2ygi_oop.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/smartboard/_next/static/chunks/086c24pi02ra7.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"/smartboard/_next/static/chunks/2k3383nasd5ow.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"/smartboard/_next/static/chunks/0cktmpztj7hcu.js","async":true,"nonce":"$undefined"}]],["$","$L13",null,{"children":["$","$14",null,{"name":"Next.MetadataOutlet","children":"$@15"}]}]]}]
-9:["$","$1","h",{"children":[null,["$","$L16",null,{"children":"$L17"}],["$","div",null,{"hidden":true,"children":["$","$L18",null,{"children":["$","$14",null,{"name":"Next.Metadata","children":"$L19"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
-b:["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/1z6f30216d5ir.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
-c:["$","link","1",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/0ws8vg54_tlwu.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
-1a:I[47779,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js","/smartboard/_next/static/chunks/086c24pi02ra7.js","/smartboard/_next/static/chunks/2k3383nasd5ow.js","/smartboard/_next/static/chunks/0cktmpztj7hcu.js"],"TopicTeachingBoardClient"]
-8:C
-12:["$","$L1a",null,{"classId":"_","chapterId":"_","topicId":"_"}]
-17:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"}]]
-1b:I[27201,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/1by2di3b_2t_l.js","/smartboard/_next/static/chunks/3uggk_-qlp5aa.js"],"IconMark"]
-15:null
-19:[["$","title","0",{"children":"Sekhar Teaching Hub"}],["$","meta","1",{"name":"description","content":"Interactive physics smartboard teaching platform with live multi-page vector whiteboard and curriculum management."}],["$","link","2",{"rel":"icon","href":"/smartboard/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$L1b","3",{}]]
+            3:T5fa,
+              if (typeof window !== 'undefined') {
+                var hostname = window.location.hostname;
+                var isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1' || window.location.port === '3000';
+                if (isLocalDev) {
+                  // In local development, aggressively unregister service workers and purge stale chunk caches
+                  if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(regs) {
+                      regs.forEach(function(r) { r.unregister(); });
+                    });
+                  }
+                  if (window.caches) {
+                    caches.keys().then(function(names) {
+                      names.forEach(function(n) { caches.delete(n); });
+                    });
+                  }
+                } else if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    var rawBasePath = "/smartboard";
+                    var basePath = rawBasePath.startsWith('/') ? rawBasePath : (rawBasePath ? '/' + rawBasePath : '');
+                    var swUrl = (basePath || '') + '/sw.js';
+                    var swScope = basePath ? (basePath + '/') : '/';
+                    navigator.serviceWorker.register(swUrl, { scope: swScope }).catch(function(err) {
+                      console.debug('[SW] Registration notice:', err);
+                    });
+                  });
+                }
+              }
+            9:X
+0:{"P":null,"c":["","_","_","_",""],"q":"","i":false,"f":[[["",{"children":[["classId","_","d",["login","signup"]],{"children":[["chapterId","_","d",[]],{"children":[["topicId","_","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/3bnt9llm2178e.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","link","1",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/3rrv370y44amf.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/smartboard/_next/static/chunks/3fntmmi971322.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"/smartboard/_next/static/chunks/2h01lc5sxcod3.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"/smartboard/_next/static/chunks/1hg-l-quneben.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"roboto_4d58ff1d-module__pznC1G__variable","suppressHydrationWarning":true,"children":[["$","head",null,{"children":[["$","script",null,{"id":"chunk-recovery","dangerouslySetInnerHTML":{"__html":"$2"}}],["$","script",null,{"id":"theme-initializer","dangerouslySetInnerHTML":{"__html":"\n              (function() {\n                try {\n                  var raw = localStorage.getItem(\"app_teaching_settings_v1\");\n                  var s = raw ? JSON.parse(raw) : null;\n                  var theme = s && s.themeMode ? s.themeMode : 'light';\n                  if (theme === 'system') {\n                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n                  }\n                  document.documentElement.setAttribute('data-theme', theme);\n                  var scale = s && s.uiScale ? s.uiScale : 100;\n                  document.documentElement.style.setProperty('--ui-scale', (scale / 100).toString());\n                  document.documentElement.style.fontSize = (14 * (scale / 100)).toFixed(1) + 'px';\n                } catch(e) {}\n              })();\n            "}}],["$","script",null,{"id":"sw-initializer","dangerouslySetInnerHTML":{"__html":"$3"}}]]}],"$L4"]}]]}],{"children":["$L5",{"children":["$L6",{"children":["$L7",{"children":["$L8",{},null,false,null]},null,false,"$9"]},null,false,"$9"]},null,false,"$9"]},null,false,null],"$La",false]],"m":"$undefined","G":["$b",["$Lc","$Ld"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"GAjmRcvzedJR-gvTlID9Y"}
+e:I[57951,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"AuthProvider"]
+f:I[47451,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"AuthGate"]
+10:I[39756,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"default"]
+11:I[37457,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"default"]
+12:I[29306,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js","/smartboard/_next/static/chunks/16wfzw2xx-ry9.js"],"default"]
+14:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"OutletBoundary"]
+15:"$Sreact.suspense"
+17:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"ViewportBoundary"]
+19:I[97367,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"MetadataBoundary"]
+4:["$","body",null,{"className":"roboto_4d58ff1d-module__pznC1G__className","children":["$","$Le",null,{"children":["$","$Lf",null,{"children":["$","$L10",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L11",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","$L12",null,{}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]}]
+5:["$","$1","c",{"children":[null,["$","$L10",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L11",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+6:["$","$1","c",{"children":[null,["$","$L10",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L11",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+7:["$","$1","c",{"children":[null,["$","$L10",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L11",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}]
+8:["$","$1","c",{"children":["$L13",[["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/34o5epta4u8qh.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/smartboard/_next/static/chunks/2t_nap7pn_ghz.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"/smartboard/_next/static/chunks/2ekowqkhhqwvx.js","async":true,"nonce":"$undefined"}],["$","script","script-2",{"src":"/smartboard/_next/static/chunks/1bhul0p0fnku6.js","async":true,"nonce":"$undefined"}]],["$","$L14",null,{"children":["$","$15",null,{"name":"Next.MetadataOutlet","children":"$@16"}]}]]}]
+a:["$","$1","h",{"children":[null,["$","$L17",null,{"children":"$L18"}],["$","div",null,{"hidden":true,"children":["$","$L19",null,{"children":["$","$15",null,{"name":"Next.Metadata","children":"$L1a"}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]
+c:["$","link","0",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/3bnt9llm2178e.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
+d:["$","link","1",{"rel":"stylesheet","href":"/smartboard/_next/static/chunks/3rrv370y44amf.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]
+1b:I[47779,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js","/smartboard/_next/static/chunks/2t_nap7pn_ghz.js","/smartboard/_next/static/chunks/2ekowqkhhqwvx.js","/smartboard/_next/static/chunks/1bhul0p0fnku6.js"],"TopicTeachingBoardClient"]
+9:C
+13:["$","$L1b",null,{"classId":"_","chapterId":"_","topicId":"_"}]
+18:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"}]]
+1c:I[27201,["/smartboard/_next/static/chunks/3fntmmi971322.js","/smartboard/_next/static/chunks/2h01lc5sxcod3.js","/smartboard/_next/static/chunks/1hg-l-quneben.js"],"IconMark"]
+16:null
+1a:[["$","title","0",{"children":"Sekhar Teaching Hub"}],["$","meta","1",{"name":"description","content":"Interactive physics smartboard teaching platform with live multi-page vector whiteboard and curriculum management."}],["$","link","2",{"rel":"icon","href":"/smartboard/favicon.ico?favicon.2vob68tjqpejf.ico","sizes":"256x256","type":"image/x-icon"}],["$","$L1c","3",{}]]

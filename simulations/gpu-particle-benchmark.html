@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Particle & Many-Body Stress Benchmark</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* =========================================================================
+       GTK4 / LIBADWAITA DESIGN SYSTEM (GNOME 45+ HIG)
+       ========================================================================= */
+    :root {
+      /* Adwaita Dark (Default) */
+      --adw-window-bg: #242424;
+      --adw-sidebar-bg: #303030;
+      --adw-sidebar-border: rgba(255, 255, 255, 0.08);
+      --adw-card-bg: #383838;
+      --adw-card-border: rgba(255, 255, 255, 0.05);
+      --adw-text-color: #ffffff;
+      --adw-subtitle-color: #9a9996;
+      --adw-accent-color: #3584e4;
+      --adw-accent-badge-bg: rgba(53, 132, 228, 0.2);
+      --adw-accent-badge-text: #62a0ea;
+      --adw-success-color: #2ec27e;
+      --adw-warning-color: #f6d32d;
+      --adw-danger-color: #e01b24;
+      --adw-scale-track-bg: #484848;
+      --adw-scale-track-fill: #3584e4;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      --adw-stepper-bg: #484848;
+      --adw-stepper-text: #ffffff;
+      --adw-btn-primary-bg: #3584e4;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #3e3e3e;
+      --adw-btn-sec-text: #ffffff;
+      --adw-btn-sec-hover: #4a4a4a;
+      --adw-switch-bg: #484848;
+      --adw-switch-active: #3584e4;
+      --adw-canvas-bg: #181818;
+      --adw-canvas-border: rgba(255, 255, 255, 0.08);
+      --adw-grid-color: #2c2c2c;
+      --adw-axis-color: #5e5c64;
+      --adw-hud-card-bg: rgba(36, 36, 36, 0.94);
+      --adw-hud-card-border: rgba(255, 255, 255, 0.1);
+    }
+
+    body.light-theme {
+      /* Adwaita Light */
+      --adw-window-bg: #fafafa;
+      --adw-sidebar-bg: #ebebeb;
+      --adw-sidebar-border: #deddda;
+      --adw-card-bg: #ffffff;
+      --adw-card-border: #deddda;
+      --adw-text-color: #2e3436;
+      --adw-subtitle-color: #77767b;
+      --adw-accent-color: #1c71d8;
+      --adw-accent-badge-bg: rgba(28, 113, 216, 0.12);
+      --adw-accent-badge-text: #1c71d8;
+      --adw-success-color: #26a269;
+      --adw-warning-color: #e5a50a;
+      --adw-danger-color: #c01c28;
+      --adw-scale-track-bg: #deddda;
+      --adw-scale-track-fill: #1c71d8;
+      --adw-scale-thumb-bg: #ffffff;
+      --adw-scale-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      --adw-stepper-bg: #deddda;
+      --adw-stepper-text: #2e3436;
+      --adw-btn-primary-bg: #1c71d8;
+      --adw-btn-primary-text: #ffffff;
+      --adw-btn-sec-bg: #deddda;
+      --adw-btn-sec-text: #2e3436;
+      --adw-btn-sec-hover: #cfcecb;
+      --adw-switch-bg: #deddda;
+      --adw-switch-active: #1c71d8;
+      --adw-canvas-bg: #f5f5f5;
+      --adw-canvas-border: #deddda;
+      --adw-grid-color: #eaeaea;
+      --adw-axis-color: #c0bfbc;
+      --adw-hud-card-bg: rgba(255, 255, 255, 0.96);
+      --adw-hud-card-border: #deddda;
+    }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Cantarell", "Ubuntu", "Segoe UI", Roboto, "Inter", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      background-color: var(--adw-window-bg); color: var(--adw-text-color);
+      user-select: none; transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .sim-layout {
+      display: flex; width: 100%; height: 100%; gap: 10px; padding: 10px;
+      box-sizing: border-box;
+    }
+
+    /* LUCIDE SVG ICON BASE */
+    .lucide-icon {
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
+      stroke: currentColor; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* =========================================================================
+       GTK4 / LIBADWAITA SIDEBAR PANEL WITH SLIM SCROLLBAR (ZERO WIDTH TRANSITION)
+       ========================================================================= */
+    .controls-panel {
+      width: 270px; min-width: 270px; max-width: 270px; flex: 0 0 270px; height: 100%;
+      display: flex; flex-direction: column; gap: 7px;
+      background: var(--adw-sidebar-bg); border: 1px solid var(--adw-sidebar-border);
+      border-radius: 0px; padding: 10px; padding-bottom: 24px;
+      overflow-y: auto; overflow-x: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      scrollbar-width: thin;
+      scrollbar-color: var(--adw-stepper-bg) transparent;
+    }
+
+    .controls-panel::-webkit-scrollbar { width: 6px; }
+    .controls-panel::-webkit-scrollbar-track { background: transparent; }
+    .controls-panel::-webkit-scrollbar-thumb { background: var(--adw-stepper-bg); border-radius: 0px; }
+    .controls-panel::-webkit-scrollbar-thumb:hover { background: var(--adw-btn-sec-hover); }
+
+    /* GTK4 RESIZABLE PANE SPLITTER */
+    .adw-pane-splitter {
+      width: 6px; flex: 0 0 6px; height: 100%; cursor: col-resize;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      user-select: none; touch-action: none; z-index: 20;
+      border-radius: 0px; transition: background-color 0.15s ease;
+    }
+    .adw-pane-splitter:hover, .adw-pane-splitter.dragging {
+      background-color: var(--adw-accent-badge-bg);
+    }
+    .adw-pane-splitter::after {
+      content: ""; width: 2px; height: 32px; border-radius: 0px;
+      background-color: var(--adw-axis-color); transition: background-color 0.15s ease, height 0.15s ease;
+    }
+    .adw-pane-splitter:hover::after, .adw-pane-splitter.dragging::after {
+      background-color: var(--adw-accent-color); height: 48px;
+    }
+
+    /* HEADERBAR & THEME SWITCHER */
+    .adw-header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--adw-card-border); padding-bottom: 6px; margin-bottom: 2px;
+    }
+    .adw-header-title-box { display: flex; flex-direction: column; gap: 1px; }
+    .adw-header-title { font-size: 13.5px; font-weight: 700; color: var(--adw-accent-color); letter-spacing: -0.01em; }
+    .adw-header-subtitle { font-size: 10px; font-weight: 500; color: var(--adw-subtitle-color); }
+    
+    .header-actions { display: flex; align-items: center; gap: 5px; }
+    .adw-backend-badge {
+      font-size: 8.5px; font-weight: 700; padding: 2px 5px; border-radius: 0px;
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-badge-text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
+      letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 3px;
+    }
+    
+    .adw-theme-toggle-btn {
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border); color: var(--adw-text-color);
+      font-size: 11px; padding: 4px 8px; border-radius: 0px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+      transition: all 0.15s ease;
+    }
+    .adw-theme-toggle-btn:hover { background: var(--adw-btn-sec-hover); border-color: var(--adw-accent-color); }
+
+    /* ADWVIEWSWITCHER (MODE TABS) */
+    .adw-view-switcher {
+      display: flex; background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 2px; gap: 2px;
+    }
+    .adw-view-btn {
+      flex: 1; background: transparent; border: none; color: var(--adw-subtitle-color);
+      font-size: 10px; font-weight: 600; padding: 4px 5px; border-radius: 0px;
+      cursor: pointer; transition: all 0.15s ease; text-align: center; white-space: nowrap;
+    }
+    .adw-view-btn.active {
+      background: var(--adw-accent-color); color: #ffffff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2); font-weight: 700;
+    }
+
+    /* PLAYBACK DECK */
+    .adw-deck-card {
+      display: flex; flex-direction: column; gap: 6px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 7px 9px;
+    }
+    .deck-action-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .adw-btn-pill-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    
+    button.adw-btn {
+      background: var(--adw-btn-sec-bg); color: var(--adw-btn-sec-text); border: none;
+      padding: 5px 8px; font-size: 10.5px; font-weight: 600; border-radius: 0px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease;
+    }
+    button.adw-btn:hover { background: var(--adw-btn-sec-hover); }
+    button.adw-btn.primary { background: var(--adw-btn-primary-bg); color: var(--adw-btn-primary-text); }
+    button.adw-btn.restart-pill {
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-color);
+      border: 1px solid rgba(53, 132, 228, 0.3);
+    }
+    button.adw-btn.restart-pill:hover { background: var(--adw-accent-color); color: #ffffff; }
+
+    /* ACTION ROWS & SLIDERS */
+    .adw-action-row {
+      display: flex; flex-direction: column; gap: 3px;
+      background: var(--adw-card-bg); border: 1px solid var(--adw-card-border);
+      border-radius: 0px; padding: 6px 9px; transition: all 0.15s ease;
+    }
+    .adw-row-header {
+      display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 500;
+    }
+    .adw-row-title-desc { display: flex; flex-direction: column; gap: 1px; }
+    .adw-row-subtitle { font-size: 9.5px; color: var(--adw-subtitle-color); font-weight: 400; }
+    .adw-value-badge {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", ui-monospace, monospace;
+      font-size: 10.5px; font-weight: 700; color: var(--adw-accent-badge-text);
+      background: var(--adw-accent-badge-bg); padding: 1px 6px; border-radius: 0px;
+    }
+    .adw-value-badge.success { color: var(--adw-success-color); background: rgba(46, 194, 126, 0.15); }
+    .adw-value-badge.warning { color: var(--adw-warning-color); background: rgba(246, 211, 45, 0.15); }
+    .adw-value-badge.danger { color: var(--adw-danger-color); background: rgba(224, 27, 36, 0.15); }
+
+    /* GTKSCALE SLIDERS WITH DYNAMIC TRACK HIGHLIGHT */
+    .adw-scale-slider {
+      -webkit-appearance: none; width: 100%; height: 6px; border-radius: 0px;
+      background: var(--adw-scale-track-bg); outline: none; cursor: pointer; margin-top: 3px;
+      transition: background 0.05s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 17px; height: 17px; border-radius: 0px;
+      background: var(--adw-scale-thumb-bg); box-shadow: var(--adw-scale-thumb-shadow);
+      cursor: pointer; transition: transform 0.1s ease;
+    }
+    .adw-scale-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+    /* CHIP SELECTORS */
+    .adw-chip-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+    .adw-chip-btn {
+      background: transparent; border: 1px solid var(--adw-sidebar-border); color: var(--adw-subtitle-color);
+      font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 0px;
+      cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 3px;
+    }
+    .adw-chip-btn.active {
+      background: var(--adw-accent-badge-bg); color: var(--adw-accent-color); border-color: var(--adw-accent-color);
+    }
+
+    /* GTKSWITCH TOGGLES */
+    .adw-switch-item {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10.5px; font-weight: 500;
+    }
+    .adw-switch {
+      position: relative; display: inline-block; width: 30px; height: 17px; flex-shrink: 0;
+    }
+    .adw-switch input { opacity: 0; width: 0; height: 0; }
+    .adw-switch-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--adw-switch-bg); transition: .2s; border-radius: 0px;
+    }
+    .adw-switch-slider:before {
+      position: absolute; content: ""; height: 13px; width: 13px; left: 2px; bottom: 2px;
+      background-color: white; transition: .2s; border-radius: 0px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    input:checked + .adw-switch-slider { background-color: var(--adw-switch-active); }
+    input:checked + .adw-switch-slider:before { transform: translateX(13px); }
+
+    /* =========================================================================
+       CANVAS STAGE & GTK4 TEACHING INSTRUMENTS
+       ========================================================================= */
+    .canvas-container {
+      flex: 1; height: 100%; min-width: 0; min-height: 0; position: relative;
+      background: var(--adw-canvas-bg); border: 1px solid var(--adw-canvas-border);
+      border-radius: 0px; overflow: hidden; transition: background 0.2s ease, border-color 0.2s ease;
+      touch-action: none; cursor: crosshair;
+    }
+    canvas#simCanvas { width: 100%; height: 100%; display: block; }
+
+    /* FLOATING CANVAS ZOOM BADGE */
+    .canvas-zoom-badge {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0px; padding: 4px 8px; font-size: 10px; font-weight: 600;
+      color: var(--adw-accent-color); display: inline-flex; align-items: center; gap: 5px;
+      cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      user-select: none;
+    }
+
+    /* TEACHING INSTRUMENTS TOOLBAR (BOTTOM DOCK) */
+    .teaching-tools-dock {
+      position: absolute; bottom: 10px; left: 10px; right: 10px; z-index: 10;
+      display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none;
+    }
+    .dock-pill {
+      pointer-events: auto;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border); color: var(--adw-text-color);
+      font-size: 10px; font-weight: 600; padding: 4px 9px; border-radius: 0px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      backdrop-filter: blur(8px); box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      transition: all 0.15s ease;
+    }
+    .dock-pill:hover, .dock-pill.active {
+      border-color: var(--adw-accent-color); color: var(--adw-accent-color);
+      background: var(--adw-sidebar-bg);
+    }
+
+    /* FLOATING MODULAR TEACHING CARDS */
+    .floating-tool-card {
+      position: absolute; z-index: 15;
+      background: var(--adw-hud-card-bg); border: 1px solid var(--adw-hud-card-border);
+      border-radius: 0px; padding: 8px 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px); display: none; flex-direction: column; gap: 5px;
+      user-select: none;
+    }
+    .floating-tool-card.open { display: flex; }
+    .card-header-bar {
+      display: flex; justify-content: space-between; align-items: center; cursor: move;
+      border-bottom: 1px solid var(--adw-card-border); padding-bottom: 4px; margin-bottom: 2px;
+    }
+    .card-title { font-size: 11px; font-weight: 700; color: var(--adw-accent-color); display: flex; align-items: center; gap: 5px; }
+    .card-close-btn { background: transparent; border: none; color: var(--adw-subtitle-color); font-size: 12px; cursor: pointer; padding: 0 2px; display: flex; align-items: center; }
+
+    #fpsGraphCard { bottom: 42px; right: 10px; width: 240px; }
+    #maxwellCard { bottom: 42px; left: 10px; width: 230px; }
+    #energyCard { top: 12px; left: 12px; width: 175px; }
+
+    @media (max-width: 600px) {
+      .sim-layout { flex-direction: column; }
+      .controls-panel { width: 100%; min-width: 100%; max-width: 100%; flex: 0 0 auto; height: auto; max-height: 48%; }
+      .adw-pane-splitter { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sim-layout">
+    <!-- LEFT CONTROLS PANEL -->
+    <div class="controls-panel">
+      <!-- 1. HEADERBAR & THEME SWITCHER -->
+      <div class="adw-header-bar">
+        <div class="adw-header-title-box">
+          <div class="adw-header-title">GPU Particle Stress Lab</div>
+          <div class="adw-header-subtitle">High-Throughput Many-Body & WebGPU Benchmark</div>
+        </div>
+        <div class="header-actions">
+          <div class="adw-backend-badge" id="gpuBackendBadge" title="Active Hardware Rendering Backend">⚡ Canvas 2D</div>
+          <button id="themeToggleBtn" class="adw-theme-toggle-btn" onclick="toggleTheme()" title="Switch Light / Dark Theme">
+            <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. BENCHMARK MODE SWITCHER -->
+      <div class="adw-view-switcher">
+        <button class="adw-view-btn active" id="modeGalaxy" onclick="setBenchmarkMode('galaxy', this)">Galaxy N-Body</button>
+        <button class="adw-view-btn" id="modeGas" onclick="setBenchmarkMode('gas', this)">Kinetic Gas</button>
+        <button class="adw-view-btn" id="modeDipole" onclick="setBenchmarkMode('dipole', this)">Dipole Flux</button>
+      </div>
+
+      <!-- 3. PLAYBACK DECK -->
+      <div class="adw-deck-card">
+        <div class="deck-action-row">
+          <div class="adw-btn-pill-group">
+            <button id="playBtn" class="adw-btn primary" onclick="togglePlay()">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span>Play</span>
+            </button>
+            <button id="restartBtn" class="adw-btn restart-pill" onclick="reseedParticles()" title="Reseed particle field">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reseed</span>
+            </button>
+            <button class="adw-btn" onclick="resetToDefaults()" title="Reset all sliders">
+              <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              <span>Defaults</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:3px;margin-top:2px;">
+          <div class="adw-row-header">
+            <span style="font-size:10.5px;color:var(--adw-subtitle-color);font-weight:500;">Simulation Speed:</span>
+            <span id="speedVal" class="adw-value-badge">1.00x</span>
+          </div>
+          <input type="range" id="speedSlider" class="adw-scale-slider" min="0.1" max="3.0" step="0.05" value="1.0" oninput="setSpeed(this.value)">
+        </div>
+      </div>
+
+      <!-- 4. PARTICLE STRESS CONTROLS -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Particle Stress Count (N)</span>
+            <span class="adw-row-subtitle">High-throughput GPU load</span>
+          </div>
+          <span id="particleCountBadge" class="adw-value-badge">1,000</span>
+        </div>
+        <input type="range" id="particleSlider" class="adw-scale-slider" min="50" max="10000" step="50" value="1000" oninput="setParticleCount(this.value)">
+        
+        <div class="adw-chip-row">
+          <button class="adw-chip-btn" onclick="setParticlePreset(100)">100 Light</button>
+          <button class="adw-chip-btn active" id="pChip1k" onclick="setParticlePreset(1000)">1k Mid</button>
+          <button class="adw-chip-btn" onclick="setParticlePreset(5000)">5k Heavy</button>
+          <button class="adw-chip-btn" onclick="setParticlePreset(10000)">10k Stress</button>
+        </div>
+      </div>
+
+      <!-- 5. INTERACTIVE ATTRACTOR & FORCE FIELD -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Attractor Strength (G)</span>
+            <span class="adw-row-subtitle">Central vortex gravity well</span>
+          </div>
+          <span id="gValBadge" class="adw-value-badge">1.50</span>
+        </div>
+        <input type="range" id="gSlider" class="adw-scale-slider" min="0.1" max="4.0" step="0.1" value="1.5" oninput="updateParams()">
+      </div>
+
+      <!-- 6. GRAPHICS & SHADER SETTINGS -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Particle Size & Glow</span>
+          </div>
+          <span id="sizeValBadge" class="adw-value-badge">2.0 px</span>
+        </div>
+        <input type="range" id="sizeSlider" class="adw-scale-slider" min="1.0" max="6.0" step="0.5" value="2.0" oninput="updateParams()">
+      </div>
+
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <div class="adw-row-title-desc">
+            <span>Motion Blur Trail</span>
+          </div>
+          <span id="trailValBadge" class="adw-value-badge">40%</span>
+        </div>
+        <input type="range" id="trailSlider" class="adw-scale-slider" min="0" max="0.85" step="0.05" value="0.4" oninput="updateParams()">
+      </div>
+
+      <!-- 7. COLORMAP SELECTOR -->
+      <div class="adw-action-row">
+        <div class="adw-row-header">
+          <span>Thermal Colormap:</span>
+        </div>
+        <div class="adw-chip-row">
+          <button class="adw-chip-btn active" id="palVelocity" onclick="setColorPalette('velocity')">Thermal Velocity</button>
+          <button class="adw-chip-btn" id="palCyan" onclick="setColorPalette('cyan')">Neon Cyan</button>
+          <button class="adw-chip-btn" id="palAmber" onclick="setColorPalette('amber')">Solar Flare</button>
+        </div>
+      </div>
+
+      <!-- 8. TOGGLE SWITCHES -->
+      <div class="adw-action-row">
+        <div class="adw-switch-item">
+          <span>Interactive Mouse Well</span>
+          <label class="adw-switch">
+            <input type="checkbox" id="mouseAttractorToggle" checked>
+            <span class="adw-switch-slider"></span>
+          </label>
+        </div>
+        <div class="adw-switch-item" style="margin-top:4px;">
+          <span>Performance HUD Card</span>
+          <label class="adw-switch">
+            <input type="checkbox" id="showPerfHud" checked>
+            <span class="adw-switch-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAGGABLE RESIZABLE SIDEBAR SPLITTER -->
+    <div class="adw-pane-splitter" id="paneSplitter" title="Drag to resize sidebar (Double-click to reset)"></div>
+
+    <!-- RIGHT CANVAS STAGE -->
+    <div class="canvas-container" id="canvasStageContainer">
+      <canvas id="simCanvas"></canvas>
+
+      <!-- FLOATING CANVAS ZOOM BADGE -->
+      <div id="canvasZoomBadge" class="canvas-zoom-badge" onclick="resetCanvasZoom()" title="Double-click canvas or tap to reset zoom (100%)">
+        <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
+        <span id="zoomPercentText">100%</span>
+      </div>
+
+      <!-- FLOATING TEACHING TOOL CARDS -->
+      
+      <!-- 1. REAL-TIME FPS & FRAME TIME GRAPH -->
+      <div id="fpsGraphCard" class="floating-tool-card">
+        <div class="card-header-bar">
+          <div class="card-title">
+            <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Frame Time & Jitter</span>
+          </div>
+          <button class="card-close-btn" onclick="toggleTool('fpsGraph')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+          </button>
+        </div>
+        <canvas id="fpsGraphCanvas" width="220" height="75" style="width:100%;height:75px;display:block;border-radius:0px;background:rgba(0,0,0,0.3);"></canvas>
+      </div>
+
+      <!-- 2. MAXWELL-BOLTZMANN VELOCITY HISTOGRAM -->
+      <div id="maxwellCard" class="floating-tool-card">
+        <div class="card-header-bar">
+          <div class="card-title">
+            <svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+            <span>Maxwell-Boltzmann (v)</span>
+          </div>
+          <button class="card-close-btn" onclick="toggleTool('maxwell')">
+            <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+          </button>
+        </div>
+        <canvas id="maxwellCanvas" width="210" height="75" style="width:100%;height:75px;display:block;border-radius:0px;background:rgba(0,0,0,0.3);"></canvas>
+      </div>
+
+      <!-- BOTTOM PEDAGOGICAL INSTRUMENT TOOLBAR (DOCK) -->
+      <div class="teaching-tools-dock">
+        <button id="pillFpsGraph" class="dock-pill" onclick="toggleTool('fpsGraph')">
+          <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>Frame Time Graph</span>
+        </button>
+        <button id="pillMaxwell" class="dock-pill" onclick="toggleTool('maxwell')">
+          <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+          <span>Maxwell Distribution</span>
+        </button>
+        <button id="pillRuler" class="dock-pill" onclick="toggleRuler()">
+          <svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/></svg>
+          <span>Grid Reticle</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. BIDIRECTIONAL HOST DEVICE TELEMETRY BRIDGE ---
+    let hostDpr = window.devicePixelRatio || 1;
+    window.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === 'HOST_FRAME_DATA') {
+        if (e.data.device && e.data.device.dpr) {
+          hostDpr = e.data.device.dpr;
+          resizeCanvas();
+        }
+        if (e.data.theme) {
+          isLightTheme = (e.data.theme === 'light');
+          document.body.classList.toggle('light-theme', isLightTheme);
+          updateThemeIcon();
+          updateAllSliderFills();
+        }
+      }
+    });
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'SIM_READY', id: 'gpu-particle-benchmark' }, '*');
+      }
+    } catch(err) {}
+
+    // --- 2. PROGRESSIVE WEBGPU HARDWARE ACCELERATION DETECTION ---
+    let isWebGPUSupported = false;
+    let gpuDevice = null;
+
+    async function initWebGPU() {
+      if (!navigator.gpu) return;
+      try {
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        if (!adapter) return;
+        gpuDevice = await adapter.requestDevice();
+        if (!gpuDevice) return;
+        
+        isWebGPUSupported = true;
+        const badge = document.getElementById('gpuBackendBadge');
+        if (badge) {
+          badge.innerText = '⚡ WebGPU Active';
+          badge.style.background = 'rgba(46, 194, 126, 0.2)';
+          badge.style.color = 'var(--adw-success-color)';
+        }
+      } catch (err) {
+        console.info('WebGPU initialization bypassed, using hardware Canvas 2D engine.', err);
+      }
+    }
+    initWebGPU();
+
+    // --- 3. HIGH-THROUGHPUT TYPED PARTICLE BUFFERS (Float32Array) ---
+    const MAX_PARTICLES = 10000;
+    let particleCount = 1000;
+
+    // Structured Array of Buffers for 0% Garbage Collection overhead
+    const pX = new Float32Array(MAX_PARTICLES);
+    const pY = new Float32Array(MAX_PARTICLES);
+    const pVx = new Float32Array(MAX_PARTICLES);
+    const pVy = new Float32Array(MAX_PARTICLES);
+    const pCharge = new Float32Array(MAX_PARTICLES); // For Dipole mode
+    const pSpeed = new Float32Array(MAX_PARTICLES);
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const container = document.getElementById('canvasStageContainer');
+
+    const fpsCanvas = document.getElementById('fpsGraphCanvas');
+    const fpsCtx = fpsCanvas ? fpsCanvas.getContext('2d') : null;
+
+    const maxwellCanvas = document.getElementById('maxwellCanvas');
+    const maxwellCtx = maxwellCanvas ? maxwellCanvas.getContext('2d') : null;
+
+    let canvasWidth = 500;
+    let canvasHeight = 320;
+    let isLightTheme = false;
+    let isRunning = false; // Starts paused on initial load
+    let currentMode = 'galaxy';
+    let currentPalette = 'velocity';
+
+    // Tool states
+    const toolStates = {
+      fpsGraph: false,
+      maxwell: false,
+      ruler: false
+    };
+
+    // Zoom & Pan State
+    let zoomScale = 1.0;
+    let panOffset = { x: 0, y: 0 };
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+    let lastPan = { x: 0, y: 0 };
+
+    // Mouse Attractor State
+    let mousePos = { x: 0, y: 0, active: false };
+
+    // Performance Metrics (Rolling Averages)
+    let lastFrameTime = performance.now();
+    let frameTimes = new Float32Array(100);
+    let frameTimeIndex = 0;
+    let fps = 60.0;
+    let avgFrameTimeMs = 16.6;
+    let megaCalcsPerSec = 0;
+
+    // Simulation Parameters
+    let speedMultiplier = 1.0;
+    let gStrength = 1.5;
+    let particleRadius = 2.0;
+    let motionTrailAlpha = 0.4;
+    let physicsAccumulator = 0;
+    const MICRO_DT = 0.001; // 1000 Hz micro-stepping
+
+    // Colormap Palettes
+    function getParticleColor(speed, charge) {
+      if (currentPalette === 'cyan') return isLightTheme ? '#0077b6' : '#00f2fe';
+      if (currentPalette === 'amber') return isLightTheme ? '#d97706' : '#f59e0b';
+      
+      // Thermal Velocity Heatmap (Blue -> Green -> Yellow -> Red)
+      const norm = Math.min(1.0, speed / 180);
+      if (norm < 0.33) return isLightTheme ? '#1c71d8' : '#3584e4';
+      if (norm < 0.66) return isLightTheme ? '#26a269' : '#2ec27e';
+      if (norm < 0.88) return isLightTheme ? '#e5a50a' : '#f6d32d';
+      return isLightTheme ? '#c01c28' : '#e01b24';
+    }
+
+    // Initialize & Reseed Particles
+    function reseedParticles() {
+      const cx = canvasWidth / 2;
+      const cy = canvasHeight / 2;
+
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        if (currentMode === 'galaxy') {
+          const r = 25 + Math.random() * Math.min(cx, cy) * 0.85;
+          const theta = Math.random() * Math.PI * 2;
+          pX[i] = cx + r * Math.cos(theta);
+          pY[i] = cy + r * Math.sin(theta);
+          const vOrb = Math.sqrt((gStrength * 2500) / r);
+          pVx[i] = -vOrb * Math.sin(theta) + (Math.random() - 0.5) * 5;
+          pVy[i] = vOrb * Math.cos(theta) + (Math.random() - 0.5) * 5;
+        } else if (currentMode === 'gas') {
+          pX[i] = 20 + Math.random() * (canvasWidth - 40);
+          pY[i] = 20 + Math.random() * (canvasHeight - 40);
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 40 + Math.random() * 120;
+          pVx[i] = speed * Math.cos(angle);
+          pVy[i] = speed * Math.sin(angle);
+        } else if (currentMode === 'dipole') {
+          pX[i] = Math.random() * canvasWidth;
+          pY[i] = Math.random() * canvasHeight;
+          pCharge[i] = Math.random() > 0.5 ? 1 : -1;
+          pVx[i] = (Math.random() - 0.5) * 20;
+          pVy[i] = (Math.random() - 0.5) * 20;
+        }
+        pSpeed[i] = Math.hypot(pVx[i], pVy[i]);
+      }
+    }
+
+    // --- ZERO-OVERHEAD SLIDER ACTIVE TRACK HIGHLIGHT (O(1)) ---
+    function updateSliderFill(slider) {
+      if (!slider) return;
+      const min = parseFloat(slider.min || 0);
+      const max = parseFloat(slider.max || 100);
+      const val = parseFloat(slider.value);
+      const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+      slider.style.background = `linear-gradient(to right, var(--adw-scale-track-fill) 0%, var(--adw-scale-track-fill) ${pct}%, var(--adw-scale-track-bg) ${pct}%, var(--adw-scale-track-bg) 100%)`;
+    }
+
+    function updateAllSliderFills() {
+      document.querySelectorAll('.adw-scale-slider').forEach(updateSliderFill);
+    }
+
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (!btn) return;
+      btn.innerHTML = isLightTheme 
+        ? `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`
+        : `<svg class="lucide-icon" width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+    }
+
+    function toggleTheme() {
+      isLightTheme = !isLightTheme;
+      document.body.classList.toggle('light-theme', isLightTheme);
+      updateThemeIcon();
+      updateAllSliderFills();
+    }
+
+    function togglePlay() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('playBtn');
+      if (btn) {
+        btn.innerHTML = isRunning 
+          ? `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg><span>Pause</span>`
+          : `<svg class="lucide-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg><span>Play</span>`;
+      }
+      lastFrameTime = performance.now();
+    }
+
+    function setSpeed(val) {
+      speedMultiplier = parseFloat(val);
+      document.getElementById('speedVal').innerText = speedMultiplier.toFixed(2) + 'x';
+      updateSliderFill(document.getElementById('speedSlider'));
+    }
+
+    function setParticleCount(val) {
+      particleCount = parseInt(val, 10);
+      document.getElementById('particleCountBadge').innerText = particleCount.toLocaleString();
+      document.querySelectorAll('.adw-chip-btn').forEach(b => {
+        if (b.id && b.id.startsWith('pChip')) b.classList.remove('active');
+      });
+      updateSliderFill(document.getElementById('particleSlider'));
+    }
+
+    function setParticlePreset(count) {
+      particleCount = count;
+      const s = document.getElementById('particleSlider');
+      s.value = count;
+      document.getElementById('particleCountBadge').innerText = count.toLocaleString();
+      document.querySelectorAll('.adw-chip-btn').forEach(b => {
+        if (b.id && b.id.startsWith('pChip')) b.classList.remove('active');
+      });
+      if (count === 1000) document.getElementById('pChip1k')?.classList.add('active');
+      updateSliderFill(s);
+    }
+
+    function updateParams() {
+      gStrength = parseFloat(document.getElementById('gSlider').value);
+      particleRadius = parseFloat(document.getElementById('sizeSlider').value);
+      motionTrailAlpha = parseFloat(document.getElementById('trailSlider').value);
+
+      document.getElementById('gValBadge').innerText = gStrength.toFixed(2);
+      document.getElementById('sizeValBadge').innerText = particleRadius.toFixed(1) + ' px';
+      document.getElementById('trailValBadge').innerText = Math.round(motionTrailAlpha * 100) + '%';
+      updateAllSliderFills();
+    }
+
+    function setBenchmarkMode(mode, btn) {
+      currentMode = mode;
+      document.querySelectorAll('.adw-view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      reseedParticles();
+    }
+
+    function setColorPalette(pal) {
+      currentPalette = pal;
+      document.getElementById('palVelocity').classList.toggle('active', pal === 'velocity');
+      document.getElementById('palCyan').classList.toggle('active', pal === 'cyan');
+      document.getElementById('palAmber').classList.toggle('active', pal === 'amber');
+    }
+
+    function resetToDefaults() {
+      document.getElementById('particleSlider').value = 1000;
+      document.getElementById('gSlider').value = 1.5;
+      document.getElementById('sizeSlider').value = 2.0;
+      document.getElementById('trailSlider').value = 0.4;
+      document.getElementById('speedSlider').value = 1.0;
+      particleCount = 1000;
+      speedMultiplier = 1.0;
+      document.getElementById('particleCountBadge').innerText = '1,000';
+      document.getElementById('speedVal').innerText = '1.00x';
+      updateParams();
+      reseedParticles();
+    }
+
+    function toggleTool(name) {
+      toolStates[name] = !toolStates[name];
+      const cardMap = { fpsGraph: 'fpsGraphCard', maxwell: 'maxwellCard' };
+      const pillMap = { fpsGraph: 'pillFpsGraph', maxwell: 'pillMaxwell' };
+      if (cardMap[name]) document.getElementById(cardMap[name])?.classList.toggle('open', toolStates[name]);
+      if (pillMap[name]) document.getElementById(pillMap[name])?.classList.toggle('active', toolStates[name]);
+    }
+
+    function toggleRuler() {
+      toolStates.ruler = !toolStates.ruler;
+      document.getElementById('pillRuler')?.classList.toggle('active', toolStates.ruler);
+    }
+
+    function resetCanvasZoom() {
+      zoomScale = 1.0; panOffset = { x: 0, y: 0 };
+      document.getElementById('zoomPercentText').innerText = '100%';
+    }
+
+    // Pointer Interactivity (Gravity Well Attraction)
+    container.addEventListener('pointerdown', (e) => {
+      const rect = container.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+      mousePos.active = true;
+    });
+
+    container.addEventListener('pointermove', (e) => {
+      const rect = container.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+    });
+
+    const stopMouse = () => { mousePos.active = false; };
+    container.addEventListener('pointerup', stopMouse);
+    container.addEventListener('pointerleave', stopMouse);
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      canvasWidth = rect.width;
+      canvasHeight = rect.height;
+      const dpr = hostDpr || window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvasWidth * dpr);
+      canvas.height = Math.round(canvasHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => resizeCanvas());
+      ro.observe(container);
+    } else {
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    // --- 4. 1000 HZ VSYNC MICRO-STEPPING ENGINE & HIGH-FPS STRESS RENDER LOOP ---
+    function draw() {
+      if (canvasWidth <= 0 || canvas.width === 0) {
+        resizeCanvas();
+      }
+
+      const now = performance.now();
+      let dt_real = (now - lastFrameTime) / 1000;
+      const frameDeltaMs = now - lastFrameTime;
+      lastFrameTime = now;
+
+      // Update Rolling Performance Metrics
+      frameTimes[frameTimeIndex] = frameDeltaMs;
+      frameTimeIndex = (frameTimeIndex + 1) % frameTimes.length;
+      
+      let sumTime = 0;
+      for (let i = 0; i < frameTimes.length; i++) sumTime += frameTimes[i];
+      avgFrameTimeMs = sumTime / frameTimes.length;
+      fps = Math.min(240, 1000 / Math.max(1, avgFrameTimeMs));
+      megaCalcsPerSec = ((particleCount * 1000) / 1000000).toFixed(1);
+
+      if (dt_real > 0.1) dt_real = 0.1; // Clamp
+
+      // 1000 Hz Sub-Stepping Physics
+      if (isRunning) {
+        physicsAccumulator += dt_real * speedMultiplier;
+        const cx = canvasWidth / 2;
+        const cy = canvasHeight / 2;
+        const interactiveMouse = document.getElementById('mouseAttractorToggle').checked && mousePos.active;
+
+        let steps = 0;
+        while (physicsAccumulator >= MICRO_DT && steps < 60) {
+          const dt = MICRO_DT;
+
+          for (let i = 0; i < particleCount; i++) {
+            let fx = 0;
+            let fy = 0;
+
+            if (currentMode === 'galaxy') {
+              // Central Gravity Well (Black Hole Attractor)
+              const dx = cx - pX[i];
+              const dy = cy - pY[i];
+              const distSq = dx * dx + dy * dy + 400; // Softened gravitational core
+              const dist = Math.sqrt(distSq);
+              const force = (gStrength * 250000) / distSq;
+              fx += force * (dx / dist);
+              fy += force * (dy / dist);
+
+              // Interactive Cursor Gravity Well
+              if (interactiveMouse) {
+                const mdx = mousePos.x - pX[i];
+                const mdy = mousePos.y - pY[i];
+                const mDistSq = mdx * mdx + mdy * mdy + 300;
+                const mDist = Math.sqrt(mDistSq);
+                const mForce = (gStrength * 350000) / mDistSq;
+                fx += mForce * (mdx / mDist);
+                fy += mForce * (mdy / mDist);
+              }
+            } else if (currentMode === 'gas') {
+              // Elastic Wall Collisions
+              if (pX[i] <= 5 && pVx[i] < 0) pVx[i] = -pVx[i];
+              if (pX[i] >= canvasWidth - 5 && pVx[i] > 0) pVx[i] = -pVx[i];
+              if (pY[i] <= 5 && pVy[i] < 0) pVy[i] = -pVy[i];
+              if (pY[i] >= canvasHeight - 5 && pVy[i] > 0) pVy[i] = -pVy[i];
+
+              if (interactiveMouse) {
+                const mdx = mousePos.x - pX[i];
+                const mdy = mousePos.y - pY[i];
+                const mDistSq = mdx * mdx + mdy * mdy + 100;
+                if (mDistSq < 15000) {
+                  const mDist = Math.sqrt(mDistSq);
+                  const mForce = 8000 / mDistSq;
+                  fx -= mForce * (mdx / mDist); // Repulsive thermal wand
+                  fy -= mForce * (mdy / mDist);
+                }
+              }
+            } else if (currentMode === 'dipole') {
+              // Positive Pole (Left) & Negative Pole (Right)
+              const p1x = cx - 120; const p1y = cy;
+              const p2x = cx + 120; const p2y = cy;
+
+              const d1x = p1x - pX[i]; const d1y = p1y - pY[i];
+              const r1Sq = d1x * d1x + d1y * d1y + 300;
+              const r1 = Math.sqrt(r1Sq);
+              const f1 = (pCharge[i] * 120000) / r1Sq;
+              fx += f1 * (d1x / r1);
+              fy += f1 * (d1y / r1);
+
+              const d2x = p2x - pX[i]; const d2y = p2y - pY[i];
+              const r2Sq = d2x * d2x + d2y * d2y + 300;
+              const r2 = Math.sqrt(r2Sq);
+              const f2 = (-pCharge[i] * 120000) / r2Sq;
+              fx += f2 * (d2x / r2);
+              fy += f2 * (d2y / r2);
+            }
+
+            pVx[i] += fx * dt;
+            pVy[i] += fy * dt;
+            pX[i] += pVx[i] * dt;
+            pY[i] += pVy[i] * dt;
+            pSpeed[i] = Math.hypot(pVx[i], pVy[i]);
+          }
+
+          physicsAccumulator -= MICRO_DT;
+          steps++;
+        }
+      }
+
+      // --- RENDERING PIPELINE ---
+      // Motion Blur Fade
+      const bgClr = isLightTheme ? 'rgba(245, 245, 245, ' : 'rgba(24, 24, 24, ';
+      const fadeAlpha = 1.0 - motionTrailAlpha;
+      ctx.fillStyle = bgClr + fadeAlpha + ')';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // Cartesian Grid
+      if (toolStates.ruler) {
+        ctx.strokeStyle = isLightTheme ? '#e0e0e0' : '#2d2d2d';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x < canvasWidth; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, canvasHeight); }
+        for (let y = 0; y < canvasHeight; y += 40) { ctx.moveTo(0, y); ctx.lineTo(canvasWidth, y); }
+        ctx.stroke();
+      }
+
+      // Render Central Attractor Glow
+      const cx = canvasWidth / 2;
+      const cy = canvasHeight / 2;
+
+      if (currentMode === 'galaxy') {
+        const radGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 28);
+        radGrad.addColorStop(0, '#ffffff');
+        radGrad.addColorStop(0.3, isLightTheme ? '#1c71d8' : '#3584e4');
+        radGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = radGrad;
+        ctx.beginPath(); ctx.arc(cx, cy, 28, 0, Math.PI * 2); ctx.fill();
+      } else if (currentMode === 'dipole') {
+        // Draw Positive & Negative Poles
+        ctx.fillStyle = '#e01b24';
+        ctx.beginPath(); ctx.arc(cx - 120, cy, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1c71d8';
+        ctx.beginPath(); ctx.arc(cx + 120, cy, 10, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Interactive Mouse Attractor Indicator
+      if (mousePos.active && document.getElementById('mouseAttractorToggle').checked) {
+        ctx.strokeStyle = isLightTheme ? '#1c71d8' : '#3584e4';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, 14, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // High-Performance Batched Particle Rendering
+      const rad = particleRadius;
+      for (let i = 0; i < particleCount; i++) {
+        ctx.fillStyle = getParticleColor(pSpeed[i], pCharge[i]);
+        ctx.beginPath();
+        ctx.arc(pX[i], pY[i], rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // LAYER 3: SCREEN-PINNED LIVE PERFORMANCE HUD CARD
+      if (document.getElementById('showPerfHud').checked) {
+        ctx.save();
+        ctx.fillStyle = isLightTheme ? 'rgba(235, 235, 235, 0.94)' : 'rgba(36, 36, 36, 0.94)';
+        ctx.strokeStyle = isLightTheme ? '#deddda' : 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+
+        const hudX = 12;
+        const hudY = 12;
+        const hudW = 190;
+        const hudH = 82;
+
+        ctx.beginPath();
+        ctx.roundRect(hudX, hudY, hudW, hudH, 8);
+        ctx.fill(); ctx.stroke();
+
+        ctx.font = '700 10px -apple-system, BlinkMacSystemFont, "SF Mono", monospace';
+        
+        // FPS Label
+        const fpsColor = fps >= 55 ? (isLightTheme ? '#26a269' : '#2ec27e') : (fps >= 35 ? '#f6d32d' : '#e01b24');
+        ctx.fillStyle = isLightTheme ? '#2e3436' : '#ffffff';
+        ctx.fillText(`FPS: `, hudX + 8, hudY + 18);
+        ctx.fillStyle = fpsColor;
+        ctx.fillText(`${fps.toFixed(1)} fps`, hudX + 38, hudY + 18);
+
+        ctx.fillStyle = isLightTheme ? '#2e3436' : '#ffffff';
+        ctx.fillText(`Frame Time: ${avgFrameTimeMs.toFixed(2)} ms`, hudX + 8, hudY + 34);
+        ctx.fillText(`Active Load: ${particleCount.toLocaleString()} pts`, hudX + 8, hudY + 50);
+        ctx.fillText(`Throughput: ${megaCalcsPerSec} MCalcs/s`, hudX + 8, hudY + 66);
+
+        ctx.restore();
+      }
+
+      // Render Floating Tool Graph if open
+      if (toolStates.fpsGraph && fpsCtx) {
+        const fw = 220; const fh = 75;
+        fpsCtx.clearRect(0, 0, fw, fh);
+        fpsCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+        fpsCtx.beginPath(); fpsCtx.moveTo(0, fh / 2); fpsCtx.lineTo(fw, fh / 2); fpsCtx.stroke();
+
+        fpsCtx.strokeStyle = '#2ec27e';
+        fpsCtx.lineWidth = 1.5;
+        fpsCtx.beginPath();
+        for (let i = 0; i < frameTimes.length; i++) {
+          const idx = (frameTimeIndex + i) % frameTimes.length;
+          const x = (i / (frameTimes.length - 1)) * fw;
+          const y = Math.max(4, Math.min(fh - 4, fh - (frameTimes[idx] / 33.3) * fh));
+          if (i === 0) fpsCtx.moveTo(x, y);
+          else fpsCtx.lineTo(x, y);
+        }
+        fpsCtx.stroke();
+      }
+
+      // Render Maxwell-Boltzmann Histogram if open
+      if (toolStates.maxwell && maxwellCtx) {
+        const mw = 210; const mh = 75;
+        maxwellCtx.clearRect(0, 0, mw, mh);
+
+        const bins = new Uint16Array(20);
+        for (let i = 0; i < particleCount; i++) {
+          const b = Math.min(19, Math.floor((pSpeed[i] / 200) * 20));
+          bins[b]++;
+        }
+        let maxBin = 1;
+        for (let b = 0; b < 20; b++) if (bins[b] > maxBin) maxBin = bins[b];
+
+        const barW = mw / 20;
+        for (let b = 0; b < 20; b++) {
+          const barH = (bins[b] / maxBin) * (mh - 8);
+          maxwellCtx.fillStyle = '#3584e4';
+          maxwellCtx.fillRect(b * barW + 1, mh - barH, barW - 2, barH);
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // --- RESIZABLE SIDEBAR SPLITTER LOGIC ---
+    const splitter = document.getElementById('paneSplitter');
+    const controlsPanel = document.querySelector('.controls-panel');
+    let isResizing = false;
+
+    if (splitter && controlsPanel) {
+      splitter.addEventListener('pointerdown', (e) => {
+        isResizing = true;
+        splitter.classList.add('dragging');
+        splitter.setPointerCapture(e.pointerId);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      splitter.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        const containerRect = document.querySelector('.sim-layout').getBoundingClientRect();
+        const newWidth = Math.max(200, Math.min(500, e.clientX - containerRect.left - 3));
+        controlsPanel.style.width = newWidth + 'px';
+        controlsPanel.style.minWidth = newWidth + 'px';
+        controlsPanel.style.maxWidth = newWidth + 'px';
+        controlsPanel.style.flex = `0 0 ${newWidth}px`;
+      });
+
+      const stopResize = (e) => {
+        if (!isResizing) return;
+        isResizing = false;
+        splitter.classList.remove('dragging');
+        try { splitter.releasePointerCapture(e.pointerId); } catch(err) {}
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+
+      splitter.addEventListener('pointerup', stopResize);
+      splitter.addEventListener('pointercancel', stopResize);
+
+      splitter.addEventListener('dblclick', () => {
+        controlsPanel.style.width = '270px';
+        controlsPanel.style.minWidth = '270px';
+        controlsPanel.style.maxWidth = '270px';
+        controlsPanel.style.flex = '0 0 270px';
+      });
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      reseedParticles();
+      document.querySelectorAll('.adw-scale-slider').forEach(slider => {
+        slider.addEventListener('input', () => updateSliderFill(slider));
+      });
+      updateParams();
+      updateThemeIcon();
+      lastFrameTime = performance.now();
+      requestAnimationFrame(draw);
+    });
+  </script>
+</body>
+</html>

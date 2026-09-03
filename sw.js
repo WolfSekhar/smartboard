@@ -90,6 +90,14 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       try {
+        // If registered on localhost/dev, immediately self-unregister and purge all caches
+        if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1") {
+          self.registration.unregister();
+          const allKeys = await caches.keys();
+          await Promise.all(allKeys.map((k) => caches.delete(k)));
+          return;
+        }
+
         const cacheNames = await caches.keys();
         await Promise.all(
           cacheNames.map((name) => {
@@ -111,6 +119,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Skip localhost / development to ensure hot module reloading never serves stale chunks
+  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+    return;
+  }
 
   // Skip non-GET requests and Firebase/Google APIs
   if (
