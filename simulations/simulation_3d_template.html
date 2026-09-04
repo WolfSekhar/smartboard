@@ -13,15 +13,18 @@
   <title>3D Physics Simulation — Sekhar Teaching Hub</title>
 
   <!-- Three.js + OrbitControls Multi-Tier Fallback -->
-  <script src="/lib/three.min.js"></script>
+  <script src="../lib/three.min.js"></script>
+  <script>window.THREE || document.write('<script src="/lib/three.min.js"><\/script>')</script>
   <script>window.THREE || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
-  <script src="/lib/OrbitControls.js"></script>
+  <script src="../lib/OrbitControls.js"></script>
+  <script>window.THREE?.OrbitControls || document.write('<script src="/lib/OrbitControls.js"><\/script>')</script>
   <script>window.THREE?.OrbitControls || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>')</script>
 
   <!-- Multi-Tier Resilient SekharSimUI Loader -->
-  <script src="/lib/sekhar-sim-ui.min.js"></script>
-  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
-  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/teach/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script src="../lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://wolfsekhar.github.io/smartboard/lib/sekhar-sim-ui.min.js"><\/script>')</script>
 </head>
 <body>
   <script>
