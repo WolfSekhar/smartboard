@@ -4,6 +4,8 @@
      SEKHAR TEACHING HUB — OFFICIAL 3D PHYSICS SIMULATION (Three.js + SekharSimUI)
      DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
      TYPOGRAPHY: Clean Balanced Typography (Smartboard Edition)
+     NOTE: 0 lines of <style> CSS. SekharSimUI handles all UI, Splitter,
+     Zoom/Pan, 3.75x Loupe, NOSLE (sim.labels), and Theme styling natively.
      ========================================================================= -->
 <head>
   <meta charset="UTF-8">
@@ -16,9 +18,10 @@
   <script src="/lib/OrbitControls.js"></script>
   <script>window.THREE?.OrbitControls || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>')</script>
 
-  <!-- SekharSimUI Loader -->
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
   <script src="/lib/sekhar-sim-ui.min.js"></script>
-  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/personal-teaching-web-app@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/teach/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
 </head>
 <body>
   <script>
@@ -44,32 +47,6 @@
       onPlayChange: (running) => { isRunning = running; },
       onReset: () => { simTime = 0; theta = 0; }
     });
-
-    // Non-Overlapping Smartboard Spatial Label Engine (NOSLE Standard)
-    class LabelOcclusionManager {
-      constructor() { this.obstacles = []; this.placedLabels = []; }
-      reset() {
-        while (this.obstacles.length > 0) this.obstacles.shift();
-        while (this.placedLabels.length > 0) this.placedLabels.shift();
-      }
-      addCircleObstacle(cx, cy, r, pad = 6) {
-        const totalR = r + pad;
-        if (this.obstacles.length > 50) this.obstacles.shift();
-        this.obstacles.push({ left: cx - totalR, top: cy - totalR, right: cx + totalR, bottom: cy + totalR, cx, cy, r: totalR });
-      }
-      isCollision(box) {
-        for (const obs of this.obstacles) {
-          const closestX = Math.max(box.left, Math.min(obs.cx, box.right));
-          const closestY = Math.max(box.top, Math.min(obs.cy, box.bottom));
-          if ((obs.cx - closestX) ** 2 + (obs.cy - closestY) ** 2 < obs.r * obs.r) return true;
-        }
-        for (const lbl of this.placedLabels) {
-          if (!(box.right < lbl.left - 4 || box.left > lbl.right + 4 || box.bottom < lbl.top - 4 || box.top > lbl.bottom + 4)) return true;
-        }
-        return false;
-      }
-    }
-    const labelManager = new LabelOcclusionManager();
 
     // 3D Scene Initialization
     const scene = new THREE.Scene();

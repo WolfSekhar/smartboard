@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newton's Laws of Motion: Inertia Lab</title>
+
+  <!-- Typography & Math Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600&family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader Cascade -->
+  <script src="/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/teach/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    /**
+     * Newton's Laws of Motion: Inertia of Rest & Motion
+     * Sekhar Teaching Hub — Unified Simulation GUI Standard (SekharSimUI v2.0.0)
+     * Features:
+     *   1. Inertia of Rest: Card & Coin over glass beaker apparatus
+     *   2. Inertia of Motion (Scenario A): Sudden bus braking throwing passenger forward
+     *   3. Inertia of Motion (Scenario B): Sudden Earth halt throwing equator body tangentially
+     *   4. 100% Offline Procedural Audio Synthesizer (Web Audio API)
+     *   5. Built-in 3.75x Smartboard Loupe Magnifier & Canvas Viewport Zoom/Pan
+     */
+
+    // --- Instantiate SekharSimUI GUI Framework ---
+    const sim = new SekharSimUI({
+      title: "Newton's Laws of Motion",
+      subtitle: "Inertia of Rest & Motion Lab",
+      theme: "light",
+      sliders: [
+        { id: "scenario", label: "Lab Scenario [0:Rest, 1:Bus, 2:Earth]", min: 0, max: 2, step: 1, value: 0 },
+        { id: "flickSpeed", label: "Rest Flick Speed (v_pull)", min: 1.0, max: 8.0, step: 0.5, value: 4.0, unit: "m/s" },
+        { id: "coinMass", label: "Coin Mass (m)", min: 10, max: 100, step: 5, value: 50, unit: "g" },
+        { id: "busSpeed", label: "Bus Speed (v_bus)", min: 6.0, max: 30.0, step: 2.0, value: 16.0, unit: "m/s" },
+        { id: "busBrake", label: "Braking Decel (a_brake)", min: 10, max: 60, step: 5, value: 35, unit: "m/s²" },
+        { id: "earthSpeed", label: "Equator Speed (v_rot)", min: 600, max: 2400, step: 100, value: 1670, unit: "km/h" },
+        { id: "earthG", label: "Gravity Accel (g)", min: 4.9, max: 19.6, step: 0.7, value: 9.8, unit: "m/s²" }
+      ],
+      toggles: [
+        { id: "showVectors", label: "Velocity Vectors (v)", checked: false },
+        { id: "showForces", label: "Force Vectors (ΣF)", checked: false },
+        { id: "showTrail", label: "Motion Trail", checked: false },
+        { id: "showLabels", label: "Canvas Text Labels", checked: false },
+        { id: "soundFx", label: "Procedural Sound FX (Audio API)", checked: false }
+      ],
+      presets: [
+        { label: "1. Rest: Coin Drop (Standard)", values: { scenario: 0, flickSpeed: 4.0, coinMass: 50 } },
+        { label: "2. Rest: Rapid Flick (High v)", values: { scenario: 0, flickSpeed: 7.0, coinMass: 80 } },
+        { label: "3. Motion: Bus Braking (16 m/s)", values: { scenario: 1, busSpeed: 16.0, busBrake: 35 } },
+        { label: "4. Motion: Severe Impact (28 m/s)", values: { scenario: 1, busSpeed: 28.0, busBrake: 55 } },
+        { label: "5. Motion: Earth Rotation Halt", values: { scenario: 2, earthSpeed: 1670, earthG: 9.8 } }
+      ],
+      hud: ["scenario", "state", "velocity", "accel", "time"],
+      loupe: true,
+      zoomPan: true
+    });
+
+    // --- Mount Canvas & Rendering Context ---
+    const canvas = document.createElement("canvas");
+    canvas.id = "simCanvas";
+    sim.canvasHost.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+
+    // --- Global Simulation State ---
+    let isRunning = false;
+    let simTime = 0;
+    let speedMultiplier = 1.0;
+    let isLightTheme = true;
+
+    // Viewport Pan State (Zoom managed by SekharSimUI)
+    let userZoom = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let startPanX = 0;
+    let startPanY = 0;
+
+    // --- 1. Scenario 0: Inertia of Rest State (Card & Coin Apparatus) ---
+    let paperX = 0;
+    let paperY = 0;
+    let paperVx = 0;
+    let paperVy = 0;
+    let paperAngle = 0;
+    let isFlicked = false;
+
+    let coinX = 0;
+    let coinY = 0;
+    let coinVx = 0;
+    let coinVy = 0;
+    let coinAy = 0;
+    let isCoinUnsupported = false;
+    let isCoinLanded = false;
+    let coinState = "Resting on Paper";
+
+    const motionTrail = [];
+    const MAX_TRAIL_POINTS = 75;
+    const GRAVITY = 980; // px/s^2 (downward acceleration g)
+    const MU_K = 0.12;   // kinetic friction coefficient
+    const PAPER_HALF_W = 90;
+
+    // --- 2. Scenario 1: Inertia of Motion (Bus Sudden Braking) ---
+    let busCurrentVx = 16.0 * 20; // px/s
+    let busPitchAngle = 0;
+    let busState = "CRUISING";    // 'CRUISING', 'BRAKING', 'STOPPED'
+    let roadScrollX = 0;
+    let wheelAngle = 0;
+
+    let passRelX = -30;           // relative X inside bus
+    let passRelVx = 0;            // relative forward velocity px/s
+    let passAngle = 0;            // forward tilt angle
+    let passState = "STANDING";   // 'STANDING', 'FLYING', 'FALLEN'
+    const busTrail = [];
+    let busSkidParticles = [];
+
+    // --- 3. Scenario 2: Inertia of Motion (Earth Rotation Halt) ---
+    const earthRadius = 260;      // px
+    const earthCenterY = 320;     // px
+    let earthState = "ROTATING";  // 'ROTATING', 'STOPPED'
+    let earthAngle = 0;
+    let earthOmega = 0.9;         // rad/s scaled
+
+    let personEarthX = 0;
+    let personEarthY = earthCenterY - earthRadius; // apex top of Earth
+    let personEarthVx = 0;
+    let personEarthVy = 0;
+    let personEarthAngle = 0;
+    let personEarthState = "STANDING"; // 'STANDING', 'AIRBORNE', 'LANDED'
+    const earthTrail = [];
+    let earthShockWaveR = 0;
+
+    // --- Inject Dynamic Primary Action Button into SekharSimUI Deck ---
+    const deckCard = sim.sidebar.querySelector(".adw-deck-card");
+    const actionBtn = document.createElement("button");
+    actionBtn.className = "adw-btn";
+    actionBtn.id = "dynamicActionBtn";
+    actionBtn.style.cssText = "background: var(--adw-accent-badge-bg); color: var(--adw-accent-badge-text); border: 1px solid var(--adw-accent-color); font-weight: 600; padding: 7px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;";
+    actionBtn.innerHTML = `<span>⚡ Flick Paper Sheet</span>`;
+    if (deckCard) {
+      deckCard.appendChild(actionBtn);
+    }
+
+    actionBtn.onclick = () => {
+      initAudio();
+      triggerPrimaryAction();
+    };
+
+    // --- Procedural Sound Synthesis Engine (Web Audio API) ---
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playFlickSound() {
+      if (!sim.get("soundFx")) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const bufferSize = Math.floor(audioCtx.sampleRate * 0.1);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(950, now);
+        filter.frequency.exponentialRampToValueAtTime(180, now + 0.09);
+        filter.Q.value = 3.0;
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.35, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(now);
+      } catch (err) {}
+    }
+
+    function playCoinDropSound() {
+      if (!sim.get("soundFx")) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const freqs = [2480, 3650, 5100];
+        const decays = [0.18, 0.12, 0.07];
+        const amps = [0.28, 0.16, 0.08];
+
+        freqs.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.985, now + decays[idx]);
+          gain.gain.setValueAtTime(amps[idx], now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + decays[idx]);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + decays[idx]);
+        });
+      } catch (err) {}
+    }
+
+    function playBrakeSound() {
+      if (!sim.get("soundFx")) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = "sawtooth";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(840, now);
+        osc1.frequency.exponentialRampToValueAtTime(310, now + 0.42);
+        osc2.frequency.setValueAtTime(1260, now);
+        osc2.frequency.exponentialRampToValueAtTime(420, now + 0.42);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.24, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.46);
+        osc2.stop(now + 0.46);
+      } catch (err) {}
+    }
+
+    function playThudSound() {
+      if (!sim.get("soundFx")) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(155, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.22);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } catch (err) {}
+    }
+
+    function playRumbleSound() {
+      if (!sim.get("soundFx")) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const bufferSize = Math.floor(audioCtx.sampleRate * 0.45);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.55));
+        }
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(110, now);
+        filter.frequency.exponentialRampToValueAtTime(35, now + 0.44);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(now);
+      } catch (err) {}
+    }
+
+    // --- Scenario Switching & Slider Filtering ---
+    function updateActiveScenarioView() {
+      const scen = Math.round(sim.get("scenario") || 0);
+
+      // Filter slider rows in sidebar
+      const rows = sim.sidebar.querySelectorAll(".adw-action-row");
+      rows.forEach((row) => {
+        const hasSlider = row.querySelector("input[type='range']");
+        if (!hasSlider) return;
+        const id = hasSlider.id.replace("slider-", "");
+        if (id === "scenario") {
+          row.style.display = "flex";
+        } else if (id === "flickSpeed" || id === "coinMass") {
+          row.style.display = scen === 0 ? "flex" : "none";
+        } else if (id === "busSpeed" || id === "busBrake") {
+          row.style.display = scen === 1 ? "flex" : "none";
+        } else if (id === "earthSpeed" || id === "earthG") {
+          row.style.display = scen === 2 ? "flex" : "none";
+        }
+      });
+
+      // Update primary action button
+      if (scen === 0) {
+        actionBtn.innerHTML = `<span>⚡ Flick Paper Sheet</span>`;
+      } else if (scen === 1) {
+        actionBtn.innerHTML = `<span>🛑 Lock Bus Brakes</span>`;
+      } else {
+        actionBtn.innerHTML = `<span>🌍 Halt Earth Rotation</span>`;
+      }
+    }
+
+    function triggerPrimaryAction() {
+      const scen = Math.round(sim.get("scenario") || 0);
+      if (scen === 0) {
+        if (!isFlicked) {
+          isFlicked = true;
+          isRunning = true;
+          paperVx = (sim.get("flickSpeed") || 4.0) * 312;
+          playFlickSound();
+        }
+      } else if (scen === 1) {
+        if (busState === "CRUISING") {
+          busState = "BRAKING";
+          isRunning = true;
+          playBrakeSound();
+        }
+      } else {
+        if (earthState === "ROTATING") {
+          earthState = "STOPPED";
+          personEarthState = "AIRBORNE";
+          personEarthVx = earthOmega * earthRadius;
+          personEarthVy = 0;
+          earthShockWaveR = 10;
+          isRunning = true;
+          playRumbleSound();
+        }
+      }
+    }
+
+    function resetCurrentScenario() {
+      const scen = Math.round(sim.get("scenario") || 0);
+      isRunning = false;
+      simTime = 0;
+
+      if (scen === 0) {
+        paperX = 0;
+        paperY = 0;
+        paperVx = 0;
+        paperVy = 0;
+        paperAngle = 0;
+        isFlicked = false;
+        coinX = 0;
+        coinY = 0;
+        coinVx = 0;
+        coinVy = 0;
+        coinAy = 0;
+        isCoinUnsupported = false;
+        isCoinLanded = false;
+        coinState = "Resting on Paper";
+        motionTrail.length = 0;
+      } else if (scen === 1) {
+        busCurrentVx = (sim.get("busSpeed") || 16.0) * 20;
+        busPitchAngle = 0;
+        busState = "CRUISING";
+        passRelX = -30;
+        passRelVx = 0;
+        passAngle = 0;
+        passState = "STANDING";
+        busTrail.length = 0;
+        busSkidParticles = [];
+      } else {
+        earthState = "ROTATING";
+        earthAngle = 0;
+        personEarthX = 0;
+        personEarthY = earthCenterY - earthRadius;
+        personEarthVx = 0;
+        personEarthVy = 0;
+        personEarthAngle = 0;
+        personEarthState = "STANDING";
+        earthTrail.length = 0;
+        earthShockWaveR = 0;
+      }
+    }
+
+    // --- Physics Engine (1000 Hz Fixed Micro-Stepping Loop) ---
+    const MICRO_DT = 0.001; // 1 ms fixed dt
+    let accumulator = 0;
+    let lastTimestamp = performance.now();
+
+    function stepPhysics(dt) {
+      if (!isRunning) return;
+      simTime += dt;
+      const scen = Math.round(sim.get("scenario") || 0);
+
+      if (scen === 0) {
+        stepPhysicsRest(dt);
+      } else if (scen === 1) {
+        stepPhysicsBus(dt);
+      } else {
+        stepPhysicsEarth(dt);
+      }
+    }
+
+    // 1. Inertia of Rest Physics (Card & Coin on Beaker)
+    function stepPhysicsRest(dt) {
+      if (isFlicked) {
+        paperX += paperVx * dt;
+        paperVx *= Math.exp(-6.2 * dt);
+
+        if (paperVx > 15) {
+          paperAngle = Math.min(0.20, (paperVx / 1000) * 0.20);
+        } else {
+          paperAngle *= 0.90;
+        }
+
+        if (paperX > 110) {
+          paperVy += 650 * dt;
+          paperY += paperVy * dt;
+          if (paperY >= 160) {
+            paperY = 160;
+            paperVy = 0;
+            paperVx = 0;
+            paperAngle = 0;
+          }
+        }
+
+        if (paperVx < 4 && paperY >= 159) {
+          paperVx = 0;
+        }
+
+        const paperLeftEdge = -PAPER_HALF_W + paperX;
+
+        if (paperLeftEdge < (coinX + 16)) {
+          coinVx += (MU_K * 10) * dt;
+          coinX += coinVx * dt;
+          coinAy = 0;
+          coinState = "Paper Slipping Rapidly";
+        } else {
+          isCoinUnsupported = true;
+          coinVy += GRAVITY * dt;
+          coinY += coinVy * dt;
+          coinX += coinVx * dt;
+          coinAy = 9.8;
+          coinState = "Falling (Inertia of Rest: vx ≈ 0)";
+
+          if (coinY >= 158) {
+            coinY = 158;
+            if (!isCoinLanded) {
+              isCoinLanded = true;
+              playCoinDropSound();
+            }
+            coinVy = -coinVy * 0.16;
+            coinVx = 0;
+            if (Math.abs(coinVy) < 10) {
+              coinVy = 0;
+              coinAy = 0;
+              coinState = "Settled Inside Cup";
+            }
+          }
+
+          if (motionTrail.length > MAX_TRAIL_POINTS) motionTrail.shift();
+          motionTrail.push({ x: coinX, y: -90 + coinY });
+        }
+      }
+    }
+
+    // 2. Inertia of Motion Physics: Bus Braking
+    function stepPhysicsBus(dt) {
+      const busSpeed = sim.get("busSpeed") || 16.0;
+      const busBrake = sim.get("busBrake") || 35.0;
+
+      if (busState === "CRUISING") {
+        busCurrentVx = busSpeed * 20;
+        roadScrollX = (roadScrollX - busCurrentVx * dt) % 80;
+        wheelAngle += (busCurrentVx / 24) * dt;
+        passRelX = -30;
+        passRelVx = 0;
+        passAngle = 0;
+        passState = "STANDING";
+      } else if (busState === "BRAKING") {
+        busCurrentVx -= busBrake * 20 * dt;
+        if (busCurrentVx <= 0) {
+          busCurrentVx = 0;
+          busState = "STOPPED";
+          busPitchAngle = 0;
+        } else {
+          busPitchAngle = -0.05 * (busCurrentVx / (busSpeed * 20));
+          roadScrollX = (roadScrollX - busCurrentVx * dt) % 80;
+          wheelAngle += (busCurrentVx / 24) * dt;
+
+          if (Math.random() < 0.35 && busCurrentVx > 40) {
+            if (busSkidParticles.length > 30) busSkidParticles.shift();
+            busSkidParticles.push({ x: -130 - Math.random() * 20, y: 70, r: 6, alpha: 0.6 });
+            busSkidParticles.push({ x: 120 - Math.random() * 20, y: 70, r: 6, alpha: 0.6 });
+          }
+        }
+
+        for (let p of busSkidParticles) {
+          p.r += 24 * dt;
+          p.alpha -= 1.2 * dt;
+          p.x -= 40 * dt;
+        }
+        busSkidParticles = busSkidParticles.filter((p) => p.alpha > 0);
+
+        // Newton's 1st Law: Passenger maintains forward momentum!
+        if (passState === "STANDING" || passState === "FLYING") {
+          passRelVx += busBrake * 20 * dt;
+          passRelX += passRelVx * dt;
+          passAngle = Math.min(1.0, 0.2 + (passRelVx / 320));
+          passState = "FLYING";
+
+          if (busTrail.length > MAX_TRAIL_POINTS) busTrail.shift();
+          busTrail.push({ x: passRelX, y: 20 });
+
+          // Front bulkhead safety barrier at x = 125
+          if (passRelX >= 125) {
+            passRelX = 125;
+            passRelVx = 0;
+            passAngle = 0;
+            passState = "FALLEN";
+            playThudSound();
+          }
+        }
+      }
+    }
+
+    // 3. Inertia of Motion Physics: Earth Rotation Halt
+    function stepPhysicsEarth(dt) {
+      const earthSpeed = sim.get("earthSpeed") || 1670;
+      const earthG = sim.get("earthG") || 9.8;
+      earthOmega = (earthSpeed / 1670) * 0.9;
+
+      if (earthState === "ROTATING") {
+        earthAngle += earthOmega * dt;
+        personEarthX = 0;
+        personEarthY = earthCenterY - earthRadius;
+        personEarthVx = earthOmega * earthRadius;
+        personEarthVy = 0;
+        personEarthAngle = 0;
+        personEarthState = "STANDING";
+      } else if (earthState === "STOPPED") {
+        if (personEarthState === "AIRBORNE") {
+          const dx = personEarthX - 0;
+          const dy = personEarthY - earthCenterY;
+          const dist = Math.hypot(dx, dy);
+          const gPx = (earthG / 9.8) * 550;
+          const ax = -gPx * (dx / dist);
+          const ay = -gPx * (dy / dist);
+
+          personEarthVx += ax * dt;
+          personEarthVy += ay * dt;
+          personEarthX += personEarthVx * dt;
+          personEarthY += personEarthVy * dt;
+          personEarthAngle += 7.0 * dt;
+
+          if (earthTrail.length > MAX_TRAIL_POINTS) earthTrail.shift();
+          earthTrail.push({ x: personEarthX, y: personEarthY });
+
+          if (earthShockWaveR < 240) earthShockWaveR += 240 * dt;
+
+          // Impact on Earth curved perimeter
+          if (dist <= earthRadius && personEarthY > earthCenterY - earthRadius + 6) {
+            personEarthX = (dx / dist) * earthRadius;
+            personEarthY = earthCenterY + (dy / dist) * earthRadius;
+            personEarthVx = 0;
+            personEarthVy = 0;
+            personEarthState = "LANDED";
+            playThudSound();
+          }
+        }
+      }
+    }
+
+    // --- Vector Arrow Rendering Utility with NOSLE Obstacle Avoidance ---
+    function drawArrow(targetCtx, fromX, fromY, toX, toY, color, label, showLabel) {
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const len = Math.hypot(dx, dy);
+      if (len < 6) return;
+
+      const angle = Math.atan2(dy, dx);
+      const headSize = 14;
+
+      targetCtx.save();
+      targetCtx.strokeStyle = color;
+      targetCtx.fillStyle = color;
+      targetCtx.lineWidth = 3.2;
+
+      targetCtx.beginPath();
+      targetCtx.moveTo(fromX, fromY);
+      targetCtx.lineTo(toX, toY);
+      targetCtx.stroke();
+
+      // Arrowhead
+      targetCtx.beginPath();
+      targetCtx.moveTo(toX, toY);
+      targetCtx.lineTo(toX - headSize * Math.cos(angle - Math.PI / 6), toY - headSize * Math.sin(angle - Math.PI / 6));
+      targetCtx.lineTo(toX - headSize * Math.cos(angle + Math.PI / 6), toY - headSize * Math.sin(angle + Math.PI / 6));
+      targetCtx.closePath();
+      targetCtx.fill();
+
+      if (showLabel && label) {
+        targetCtx.font = "600 15px 'Roboto Mono', monospace";
+        targetCtx.fillStyle = color;
+        targetCtx.textAlign = "center";
+        const labelDist = 18;
+        const normX = -Math.sin(angle) * labelDist;
+        const normY = Math.cos(angle) * labelDist;
+        targetCtx.fillText(label, (fromX + toX) / 2 + normX, (fromY + toY) / 2 + normY);
+      }
+      targetCtx.restore();
+    }
+
+    // --- Scene Renderers ---
+
+    // 1. Inertia of Rest Scene (Card & Coin on Beaker)
+    function renderRestScene(targetCtx) {
+      const tableY = 100;
+      const cupTopY = -60;
+      const cupHeight = tableY - cupTopY; // 160px
+      const topWidth = 120;
+      const bottomWidth = 96;
+
+      // 1. Lab Bench Table
+      targetCtx.save();
+      targetCtx.fillStyle = isLightTheme ? "#e2e8f0" : "#27272a";
+      targetCtx.fillRect(-340, tableY, 680, 42);
+      targetCtx.strokeStyle = isLightTheme ? "#cbd5e1" : "#3f3f46";
+      targetCtx.lineWidth = 2.5;
+      targetCtx.beginPath();
+      targetCtx.moveTo(-340, tableY);
+      targetCtx.lineTo(340, tableY);
+      targetCtx.stroke();
+      targetCtx.restore();
+
+      // 2. Glass Cup (Tumbler with slight taper)
+      targetCtx.save();
+      const cupPath = new Path2D();
+      cupPath.moveTo(-topWidth / 2, cupTopY);
+      cupPath.lineTo(-bottomWidth / 2, tableY);
+      cupPath.lineTo(bottomWidth / 2, tableY);
+      cupPath.lineTo(topWidth / 2, cupTopY);
+      cupPath.closePath();
+
+      targetCtx.fillStyle = isLightTheme ? "rgba(224, 242, 254, 0.42)" : "rgba(56, 189, 248, 0.12)";
+      targetCtx.fill(cupPath);
+
+      targetCtx.fillStyle = isLightTheme ? "rgba(186, 230, 253, 0.65)" : "rgba(56, 189, 248, 0.25)";
+      targetCtx.fillRect(-bottomWidth / 2 + 3, tableY - 12, bottomWidth - 6, 12);
+
+      targetCtx.strokeStyle = isLightTheme ? "#0284c7" : "#38bdf8";
+      targetCtx.lineWidth = 3;
+      targetCtx.stroke(cupPath);
+
+      // Cup Rim Lip
+      targetCtx.lineWidth = 4;
+      targetCtx.beginPath();
+      targetCtx.moveTo(-topWidth / 2 - 10, cupTopY);
+      targetCtx.lineTo(-topWidth / 2, cupTopY);
+      targetCtx.moveTo(topWidth / 2, cupTopY);
+      targetCtx.lineTo(topWidth / 2 + 10, cupTopY);
+      targetCtx.stroke();
+
+      // Volumetric Markings
+      targetCtx.lineWidth = 1.5;
+      targetCtx.strokeStyle = isLightTheme ? "rgba(2, 132, 199, 0.45)" : "rgba(56, 189, 248, 0.45)";
+      for (let y = cupTopY + 35; y < tableY - 15; y += 28) {
+        const t = (y - cupTopY) / cupHeight;
+        const leftX = -topWidth / 2 + t * ((topWidth - bottomWidth) / 2);
+        targetCtx.beginPath();
+        targetCtx.moveTo(leftX, y);
+        targetCtx.lineTo(leftX + 16, y);
+        targetCtx.stroke();
+      }
+      targetCtx.restore();
+
+      // 3. Thick Paper Sheet (Index Card)
+      const paperW = 180;
+      const paperH = 10;
+      const curPaperX = -paperW / 2 + paperX;
+      const curPaperY = cupTopY - paperH + paperY;
+
+      // Slipstream air whoosh lines
+      if (paperVx > 25) {
+        targetCtx.save();
+        const slipstreamLen = Math.min(130, paperVx * 0.12);
+        const numLines = 5;
+        for (let i = 0; i < numLines; i++) {
+          const lineY = curPaperY + 2 + (paperH / (numLines + 1)) * i;
+          const lineX = curPaperX - 2;
+          const lineLen = slipstreamLen * (0.65 + 0.35 * Math.sin(i * 1.8 + simTime * 35));
+          const grad = targetCtx.createLinearGradient(lineX, lineY, lineX - lineLen, lineY);
+          grad.addColorStop(0, isLightTheme ? "rgba(0, 71, 186, 0.7)" : "rgba(56, 189, 248, 0.85)");
+          grad.addColorStop(1, "rgba(0, 71, 186, 0.0)");
+          targetCtx.strokeStyle = grad;
+          targetCtx.lineWidth = 2.2;
+          targetCtx.beginPath();
+          targetCtx.moveTo(lineX, lineY);
+          targetCtx.lineTo(lineX - lineLen, lineY);
+          targetCtx.stroke();
+        }
+        targetCtx.restore();
+      }
+
+      targetCtx.save();
+      targetCtx.translate(curPaperX + paperW / 2, curPaperY + paperH / 2);
+      targetCtx.rotate(paperAngle);
+      targetCtx.fillStyle = isLightTheme ? "#f8fafc" : "#334155";
+      targetCtx.strokeStyle = isLightTheme ? "#475569" : "#cbd5e1";
+      targetCtx.lineWidth = 2.5;
+      targetCtx.fillRect(-paperW / 2, -paperH / 2, paperW, paperH);
+      targetCtx.strokeRect(-paperW / 2, -paperH / 2, paperW, paperH);
+      targetCtx.restore();
+
+      // 4. Metallic Coin
+      const coinRadius = 20;
+      const initialCoinY = cupTopY - paperH - coinRadius; // -90
+      const curCoinX = coinX;
+      const curCoinY = initialCoinY + coinY;
+
+      const pulse = (Math.sin(performance.now() * 0.005) + 1) / 2;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(curCoinX, curCoinY, coinRadius + 7 + pulse * 5, 0, Math.PI * 2);
+      targetCtx.fillStyle = isLightTheme
+        ? `rgba(0, 71, 186, ${0.12 + pulse * 0.14})`
+        : `rgba(56, 189, 248, ${0.15 + pulse * 0.18})`;
+      targetCtx.fill();
+
+      targetCtx.beginPath();
+      targetCtx.arc(curCoinX, curCoinY, coinRadius, 0, Math.PI * 2);
+      targetCtx.fillStyle = isLightTheme ? "#d97706" : "#fbbf24";
+      targetCtx.fill();
+      targetCtx.strokeStyle = isLightTheme ? "#78350f" : "#b45309";
+      targetCtx.lineWidth = 2.5;
+      targetCtx.stroke();
+
+      targetCtx.beginPath();
+      targetCtx.arc(curCoinX, curCoinY, coinRadius - 5, 0, Math.PI * 2);
+      targetCtx.strokeStyle = isLightTheme ? "rgba(120, 53, 15, 0.45)" : "rgba(180, 83, 9, 0.55)";
+      targetCtx.lineWidth = 1.5;
+      targetCtx.stroke();
+      targetCtx.restore();
+
+      // Overlays
+      const showVel = sim.get("showVectors");
+      const showForce = sim.get("showForces");
+      const showTrail = sim.get("showTrail");
+      const showLabels = sim.get("showLabels");
+
+      if (showTrail && motionTrail.length > 1) {
+        targetCtx.save();
+        targetCtx.strokeStyle = isLightTheme ? "rgba(0, 71, 186, 0.55)" : "rgba(56, 189, 248, 0.55)";
+        targetCtx.lineWidth = 3;
+        targetCtx.setLineDash([4, 4]);
+        targetCtx.beginPath();
+        for (let i = 0; i < motionTrail.length; i++) {
+          const pt = motionTrail[i];
+          if (i === 0) targetCtx.moveTo(pt.x, pt.y);
+          else targetCtx.lineTo(pt.x, pt.y);
+        }
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      if (showLabels) {
+        targetCtx.save();
+        targetCtx.font = "600 18px 'Roboto Mono', monospace";
+        targetCtx.fillStyle = isLightTheme ? "#0f172a" : "#f8fafc";
+        targetCtx.textAlign = "center";
+
+        if (!isCoinUnsupported) {
+          targetCtx.fillText("Inertia of Rest: v_x = 0", curCoinX, curCoinY - 36);
+        } else if (coinY < 150) {
+          targetCtx.fillText("Gravity Acts: ΣF_y = mg (v_x ≈ 0)", curCoinX, curCoinY - 36);
+        } else {
+          targetCtx.fillText("Coin Settled Inside Cup", curCoinX, curCoinY - 34);
+        }
+        targetCtx.restore();
+      }
+
+      if (showVel) {
+        if (paperVx > 15) {
+          drawArrow(targetCtx, curPaperX + paperW, curPaperY + paperH / 2, curPaperX + paperW + (paperVx / 10), curPaperY + paperH / 2, "#0047ba", "v_paper", showLabels);
+        }
+        if (coinVy > 15) {
+          drawArrow(targetCtx, curCoinX, curCoinY, curCoinX, curCoinY + (coinVy / 7), "#059669", "v_coin", showLabels);
+        }
+      }
+
+      if (showForce && isCoinUnsupported && !isCoinLanded) {
+        drawArrow(targetCtx, curCoinX, curCoinY, curCoinX, curCoinY + 58, "#dc2626", "F_g = mg", showLabels);
+      }
+    }
+
+    // 2. Inertia of Motion Scene: Bus Sudden Braking
+    function renderBusScene(targetCtx) {
+      const roadY = 78;
+
+      // 1. Asphalt Road & Scrolling Markings
+      targetCtx.save();
+      targetCtx.fillStyle = isLightTheme ? "#334155" : "#1e293b";
+      targetCtx.fillRect(-500, roadY, 1000, 110);
+
+      targetCtx.strokeStyle = "#ffffff";
+      targetCtx.lineWidth = 4;
+      targetCtx.beginPath();
+      targetCtx.moveTo(-500, roadY);
+      targetCtx.lineTo(500, roadY);
+      targetCtx.stroke();
+
+      targetCtx.strokeStyle = "#facc15";
+      targetCtx.lineWidth = 3.5;
+      for (let x = -520 + roadScrollX; x < 520; x += 80) {
+        targetCtx.beginPath();
+        targetCtx.moveTo(x, roadY + 45);
+        targetCtx.lineTo(x + 40, roadY + 45);
+        targetCtx.stroke();
+      }
+      targetCtx.restore();
+
+      // 2. Tire Smoke Particles
+      if (busSkidParticles.length > 0) {
+        targetCtx.save();
+        for (let p of busSkidParticles) {
+          targetCtx.beginPath();
+          targetCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          targetCtx.fillStyle = `rgba(148, 163, 184, ${p.alpha})`;
+          targetCtx.fill();
+        }
+        targetCtx.restore();
+      }
+
+      // 3. Bus Body (Transforms with pitch angle)
+      targetCtx.save();
+      targetCtx.translate(0, 0);
+      targetCtx.rotate(busPitchAngle);
+
+      const busW = 440;
+      const busH = 170;
+      const busX = -220;
+      const busY = -92;
+
+      // Aerodynamic Shell
+      targetCtx.fillStyle = isLightTheme ? "#0284c7" : "#0369a1";
+      targetCtx.strokeStyle = isLightTheme ? "#0369a1" : "#38bdf8";
+      targetCtx.lineWidth = 3;
+      targetCtx.fillRect(busX, busY, busW, busH);
+      targetCtx.strokeRect(busX, busY, busW, busH);
+
+      // Roof Cap
+      targetCtx.fillStyle = isLightTheme ? "#f8fafc" : "#334155";
+      targetCtx.fillRect(busX, busY, busW, 20);
+
+      // Panoramic Windows
+      targetCtx.fillStyle = isLightTheme ? "rgba(224, 242, 254, 0.65)" : "rgba(56, 189, 248, 0.2)";
+      targetCtx.strokeStyle = isLightTheme ? "#cbd5e1" : "#475569";
+      targetCtx.lineWidth = 2;
+      targetCtx.fillRect(busX + 16, busY + 28, busW - 32, 82);
+      targetCtx.strokeRect(busX + 16, busY + 28, busW - 32, 82);
+
+      // Window Frame Pillars
+      const pillarXs = [-130, -50, 30, 110];
+      targetCtx.fillStyle = isLightTheme ? "#0369a1" : "#0284c7";
+      for (let px of pillarXs) {
+        targetCtx.fillRect(px, busY + 28, 8, 82);
+      }
+
+      // Interior Fixtures
+      targetCtx.strokeStyle = "#94a3b8";
+      targetCtx.lineWidth = 3;
+      targetCtx.beginPath();
+      targetCtx.moveTo(busX + 30, busY + 45);
+      targetCtx.lineTo(busX + busW - 50, busY + 45);
+      targetCtx.stroke();
+
+      // Dangling Hand Straps
+      targetCtx.strokeStyle = "#f59e0b";
+      targetCtx.lineWidth = 2;
+      for (let sx = busX + 70; sx <= busX + busW - 90; sx += 60) {
+        targetCtx.beginPath();
+        targetCtx.arc(sx, busY + 58, 6, 0, Math.PI * 2);
+        targetCtx.moveTo(sx, busY + 45);
+        targetCtx.lineTo(sx, busY + 52);
+        targetCtx.stroke();
+      }
+
+      // Vertical Chrome Pole
+      targetCtx.strokeStyle = "#cbd5e1";
+      targetCtx.lineWidth = 3.5;
+      targetCtx.beginPath();
+      targetCtx.moveTo(0, busY + 45);
+      targetCtx.lineTo(0, busY + 110);
+      targetCtx.stroke();
+
+      // Front Padded Safety Barrier at x = 125
+      targetCtx.fillStyle = "#dc2626";
+      targetCtx.fillRect(125, busY + 40, 14, 70);
+      targetCtx.strokeStyle = "#991b1b";
+      targetCtx.lineWidth = 2;
+      targetCtx.strokeRect(125, busY + 40, 14, 70);
+
+      // Driver Cab & Steering Wheel
+      targetCtx.fillStyle = "#475569";
+      targetCtx.fillRect(170, busY + 68, 32, 42);
+      targetCtx.strokeStyle = "#1e293b";
+      targetCtx.lineWidth = 3;
+      targetCtx.beginPath();
+      targetCtx.arc(178, busY + 65, 10, -Math.PI / 4, (3 * Math.PI) / 4);
+      targetCtx.stroke();
+
+      // Rear Brake Lights
+      if (busState === "BRAKING") {
+        targetCtx.save();
+        targetCtx.fillStyle = "#ef4444";
+        targetCtx.shadowColor = "#ef4444";
+        targetCtx.shadowBlur = 18;
+        targetCtx.fillRect(busX - 4, busY + 90, 8, 26);
+        targetCtx.restore();
+      } else {
+        targetCtx.fillStyle = "#991b1b";
+        targetCtx.fillRect(busX - 2, busY + 90, 6, 26);
+      }
+
+      // Headlight
+      targetCtx.fillStyle = "#fef08a";
+      targetCtx.fillRect(busX + busW - 4, busY + 88, 8, 22);
+
+      // Bus Wheels
+      const wheelRadius = 24;
+      const wheelPos = [-130, 120];
+      for (let wx of wheelPos) {
+        targetCtx.save();
+        targetCtx.translate(wx, busY + busH);
+        targetCtx.rotate(wheelAngle);
+
+        targetCtx.beginPath();
+        targetCtx.arc(0, 0, wheelRadius, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#1e293b";
+        targetCtx.fill();
+        targetCtx.strokeStyle = "#0f172a";
+        targetCtx.lineWidth = 5;
+        targetCtx.stroke();
+
+        targetCtx.beginPath();
+        targetCtx.arc(0, 0, wheelRadius - 9, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#cbd5e1";
+        targetCtx.fill();
+
+        targetCtx.strokeStyle = "#475569";
+        targetCtx.lineWidth = 2.5;
+        targetCtx.beginPath();
+        targetCtx.moveTo(-wheelRadius + 9, 0);
+        targetCtx.lineTo(wheelRadius - 9, 0);
+        targetCtx.moveTo(0, -wheelRadius + 9);
+        targetCtx.lineTo(0, wheelRadius - 9);
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      // 4. Passenger Inside Bus
+      const floorY = busY + 110;
+      targetCtx.save();
+      targetCtx.translate(passRelX, floorY);
+
+      if (passState === "FLYING") {
+        targetCtx.rotate(passAngle);
+        for (let i = 0; i < 4; i++) {
+          const ly = -45 + i * 15;
+          const grad = targetCtx.createLinearGradient(0, ly, -60, ly);
+          grad.addColorStop(0, isLightTheme ? "rgba(0, 71, 186, 0.8)" : "rgba(56, 189, 248, 0.8)");
+          grad.addColorStop(1, "rgba(0, 71, 186, 0)");
+          targetCtx.strokeStyle = grad;
+          targetCtx.lineWidth = 2.2;
+          targetCtx.beginPath();
+          targetCtx.moveTo(0, ly);
+          targetCtx.lineTo(-60, ly);
+          targetCtx.stroke();
+        }
+      }
+
+      if (passState === "FALLEN") {
+        targetCtx.fillStyle = "#f97316";
+        targetCtx.fillRect(-18, -25, 26, 25);
+        targetCtx.beginPath();
+        targetCtx.arc(0, -32, 10, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#fde047";
+        targetCtx.fill();
+        targetCtx.strokeStyle = "#9a3412";
+        targetCtx.lineWidth = 2;
+        targetCtx.stroke();
+      } else {
+        // Upright or Flying Figure
+        targetCtx.strokeStyle = "#1e3a8a";
+        targetCtx.lineWidth = 5;
+        targetCtx.beginPath();
+        targetCtx.moveTo(-5, -22);
+        targetCtx.lineTo(-7, 0);
+        targetCtx.moveTo(5, -22);
+        targetCtx.lineTo(7, 0);
+        targetCtx.stroke();
+
+        targetCtx.fillStyle = "#ea580c";
+        targetCtx.fillRect(-10, -50, 20, 30);
+
+        targetCtx.strokeStyle = "#ea580c";
+        targetCtx.lineWidth = 4;
+        targetCtx.beginPath();
+        if (passState === "FLYING") {
+          targetCtx.moveTo(6, -42);
+          targetCtx.lineTo(24, -48);
+          targetCtx.moveTo(6, -36);
+          targetCtx.lineTo(22, -38);
+        } else {
+          targetCtx.moveTo(6, -42);
+          targetCtx.lineTo(16, -62);
+        }
+        targetCtx.stroke();
+
+        targetCtx.beginPath();
+        targetCtx.arc(0, -60, 11, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#fde047";
+        targetCtx.fill();
+        targetCtx.strokeStyle = "#c2410c";
+        targetCtx.lineWidth = 2;
+        targetCtx.stroke();
+      }
+      targetCtx.restore();
+
+      targetCtx.restore(); // Bus transform restore
+
+      // Overlays
+      const showVel = sim.get("showVectors");
+      const showForce = sim.get("showForces");
+      const showTrail = sim.get("showTrail");
+      const showLabels = sim.get("showLabels");
+
+      if (showTrail && busTrail.length > 1) {
+        targetCtx.save();
+        targetCtx.strokeStyle = "#059669";
+        targetCtx.lineWidth = 3;
+        targetCtx.setLineDash([4, 4]);
+        targetCtx.beginPath();
+        for (let i = 0; i < busTrail.length; i++) {
+          const pt = busTrail[i];
+          if (i === 0) targetCtx.moveTo(pt.x, pt.y);
+          else targetCtx.lineTo(pt.x, pt.y);
+        }
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      if (showLabels) {
+        targetCtx.save();
+        targetCtx.font = "600 17px 'Roboto Mono', monospace";
+        targetCtx.fillStyle = isLightTheme ? "#0f172a" : "#f8fafc";
+        targetCtx.textAlign = "center";
+
+        if (passState === "FLYING") {
+          targetCtx.fillText("Inertia of Motion: Passenger continues forward!", 0, -125);
+        } else if (busState === "BRAKING") {
+          targetCtx.fillText(`Bus Brakes Locked: a_bus = -${(sim.get("busBrake") || 35).toFixed(0)} m/s²`, 0, -125);
+        } else {
+          targetCtx.fillText("Bus Cruising: Passenger moves at same velocity as Bus", 0, -125);
+        }
+        targetCtx.restore();
+      }
+
+      if (showVel) {
+        if (busCurrentVx > 20) {
+          drawArrow(targetCtx, 220, -5, 220 + busCurrentVx * 0.18, -5, "#0284c7", "v_bus", showLabels);
+        }
+        if (passState === "FLYING") {
+          drawArrow(targetCtx, passRelX, 0, passRelX + 70, 0, "#059669", "v_passenger", showLabels);
+        }
+      }
+
+      if (showForce && busState === "BRAKING") {
+        drawArrow(targetCtx, 0, 78, -90, 78, "#dc2626", "F_brake", showLabels);
+      }
+    }
+
+    // 3. Inertia of Motion Scene: Earth Rotation Halt
+    function renderEarthScene(targetCtx) {
+      const cy = earthCenterY;
+      const R = earthRadius;
+      const apexY = cy - R; // 60
+
+      // 1. Atmosphere Halo
+      targetCtx.save();
+      const atmoGrad = targetCtx.createRadialGradient(0, cy, R - 10, 0, cy, R + 30);
+      atmoGrad.addColorStop(0, isLightTheme ? "rgba(56, 189, 248, 0.45)" : "rgba(56, 189, 248, 0.25)");
+      atmoGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
+      targetCtx.fillStyle = atmoGrad;
+      targetCtx.beginPath();
+      targetCtx.arc(0, cy, R + 30, 0, Math.PI * 2);
+      targetCtx.fill();
+      targetCtx.restore();
+
+      // 2. Globe
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.arc(0, cy, R, 0, Math.PI * 2);
+      targetCtx.fillStyle = isLightTheme ? "#0284c7" : "#0369a1";
+      targetCtx.fill();
+      targetCtx.clip();
+
+      // Rotating Continents
+      targetCtx.save();
+      targetCtx.translate(0, cy);
+      targetCtx.rotate(earthAngle);
+
+      targetCtx.fillStyle = isLightTheme ? "#15803d" : "#166534";
+      targetCtx.strokeStyle = "#14532d";
+      targetCtx.lineWidth = 2;
+
+      const landPatches = [
+        { angle: 0, r: R * 0.78, w: 90, h: 65 },
+        { angle: 1.4, r: R * 0.75, w: 110, h: 75 },
+        { angle: 2.8, r: R * 0.80, w: 95, h: 60 },
+        { angle: 4.3, r: R * 0.74, w: 120, h: 80 }
+      ];
+
+      for (let land of landPatches) {
+        targetCtx.save();
+        targetCtx.rotate(land.angle);
+        targetCtx.beginPath();
+        targetCtx.ellipse(0, -land.r, land.w / 2, land.h / 2, 0, 0, Math.PI * 2);
+        targetCtx.fill();
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      // Parallels
+      targetCtx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      targetCtx.lineWidth = 1.5;
+      targetCtx.setLineDash([6, 6]);
+      targetCtx.beginPath();
+      targetCtx.arc(0, 0, R * 0.5, 0, Math.PI * 2);
+      targetCtx.arc(0, 0, R * 0.8, 0, Math.PI * 2);
+      targetCtx.stroke();
+      targetCtx.restore(); // Continents restore
+
+      targetCtx.restore(); // Globe clip restore
+
+      // Globe Outline
+      targetCtx.save();
+      targetCtx.strokeStyle = isLightTheme ? "#0369a1" : "#38bdf8";
+      targetCtx.lineWidth = 3;
+      targetCtx.beginPath();
+      targetCtx.arc(0, cy, R, 0, Math.PI * 2);
+      targetCtx.stroke();
+      targetCtx.restore();
+
+      // Shockwave Ripple
+      if (earthState === "STOPPED" && earthShockWaveR > 0 && earthShockWaveR < 240) {
+        targetCtx.save();
+        targetCtx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 1 - earthShockWaveR / 240)})`;
+        targetCtx.lineWidth = 3;
+        targetCtx.beginPath();
+        targetCtx.arc(0, apexY, earthShockWaveR, 0, Math.PI * 2);
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      // Tangent Departure Line from Apex
+      if (earthState === "STOPPED") {
+        targetCtx.save();
+        targetCtx.strokeStyle = isLightTheme ? "rgba(217, 119, 6, 0.65)" : "rgba(251, 191, 36, 0.65)";
+        targetCtx.lineWidth = 2.2;
+        targetCtx.setLineDash([5, 5]);
+        targetCtx.beginPath();
+        targetCtx.moveTo(0, apexY);
+        targetCtx.lineTo(260, apexY);
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      // Person Figure
+      targetCtx.save();
+      if (personEarthState === "STANDING") {
+        targetCtx.translate(0, apexY);
+
+        targetCtx.fillStyle = "#64748b";
+        targetCtx.fillRect(-12, -4, 24, 4);
+
+        targetCtx.strokeStyle = "#1e3a8a";
+        targetCtx.lineWidth = 4;
+        targetCtx.beginPath();
+        targetCtx.moveTo(-4, -18);
+        targetCtx.lineTo(-4, -4);
+        targetCtx.moveTo(4, -18);
+        targetCtx.lineTo(4, -4);
+        targetCtx.stroke();
+
+        targetCtx.fillStyle = "#ea580c";
+        targetCtx.fillRect(-7, -38, 14, 20);
+
+        targetCtx.beginPath();
+        targetCtx.arc(0, -46, 8, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#fde047";
+        targetCtx.fill();
+        targetCtx.strokeStyle = "#c2410c";
+        targetCtx.lineWidth = 1.8;
+        targetCtx.stroke();
+      } else if (personEarthState === "AIRBORNE") {
+        targetCtx.translate(personEarthX, personEarthY);
+        targetCtx.rotate(personEarthAngle);
+
+        for (let i = 0; i < 3; i++) {
+          const ly = -10 + i * 10;
+          const grad = targetCtx.createLinearGradient(0, ly, -40, ly);
+          grad.addColorStop(0, "rgba(234, 88, 12, 0.8)");
+          grad.addColorStop(1, "rgba(234, 88, 12, 0)");
+          targetCtx.strokeStyle = grad;
+          targetCtx.lineWidth = 2;
+          targetCtx.beginPath();
+          targetCtx.moveTo(0, ly);
+          targetCtx.lineTo(-40, ly);
+          targetCtx.stroke();
+        }
+
+        targetCtx.fillStyle = "#ea580c";
+        targetCtx.fillRect(-7, -15, 14, 20);
+        targetCtx.beginPath();
+        targetCtx.arc(0, -22, 8, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#fde047";
+        targetCtx.fill();
+        targetCtx.stroke();
+      } else if (personEarthState === "LANDED") {
+        targetCtx.translate(personEarthX, personEarthY);
+        targetCtx.fillStyle = "#ea580c";
+        targetCtx.fillRect(-10, -12, 20, 12);
+        targetCtx.beginPath();
+        targetCtx.arc(0, -18, 7, 0, Math.PI * 2);
+        targetCtx.fillStyle = "#fde047";
+        targetCtx.fill();
+      }
+      targetCtx.restore();
+
+      // Overlays
+      const showVel = sim.get("showVectors");
+      const showForce = sim.get("showForces");
+      const showTrail = sim.get("showTrail");
+      const showLabels = sim.get("showLabels");
+
+      if (showTrail && earthTrail.length > 1) {
+        targetCtx.save();
+        targetCtx.strokeStyle = "#059669";
+        targetCtx.lineWidth = 3;
+        targetCtx.setLineDash([4, 4]);
+        targetCtx.beginPath();
+        for (let i = 0; i < earthTrail.length; i++) {
+          const pt = earthTrail[i];
+          if (i === 0) targetCtx.moveTo(pt.x, pt.y);
+          else targetCtx.lineTo(pt.x, pt.y);
+        }
+        targetCtx.stroke();
+        targetCtx.restore();
+      }
+
+      if (showLabels) {
+        targetCtx.save();
+        targetCtx.font = "600 17px 'Roboto Mono', monospace";
+        targetCtx.fillStyle = isLightTheme ? "#0f172a" : "#f8fafc";
+        targetCtx.textAlign = "center";
+
+        if (personEarthState === "AIRBORNE") {
+          targetCtx.fillText("Earth Stopped! Tangential flight due to Inertia of Motion", 0, -10);
+        } else if (earthState === "ROTATING") {
+          targetCtx.fillText(`Earth Rotating: v = ${(sim.get("earthSpeed") || 1670).toFixed(0)} km/h (464 m/s)`, 0, -10);
+        } else {
+          targetCtx.fillText("Person Landed on Earth Surface", 0, -10);
+        }
+        targetCtx.restore();
+      }
+
+      if (showVel) {
+        if (earthState === "ROTATING") {
+          drawArrow(targetCtx, 0, apexY - 45, 90, apexY - 45, "#0284c7", "v_rot = 464 m/s", showLabels);
+        } else if (personEarthState === "AIRBORNE") {
+          drawArrow(targetCtx, personEarthX, personEarthY, personEarthX + personEarthVx * 0.35, personEarthY + personEarthVy * 0.35, "#059669", "v_tan", showLabels);
+        }
+      }
+
+      if (showForce && personEarthState === "AIRBORNE") {
+        const dx = 0 - personEarthX;
+        const dy = cy - personEarthY;
+        const d = Math.hypot(dx, dy);
+        drawArrow(targetCtx, personEarthX, personEarthY, personEarthX + (dx / d) * 55, personEarthY + (dy / d) * 55, "#dc2626", "F_g", showLabels);
+      }
+    }
+
+    // --- Master Render Routine ---
+    function renderScene(targetCtx, scaleFactor) {
+      const w = sim.canvasContainer.clientWidth;
+      const h = sim.canvasContainer.clientHeight;
+
+      const colGrid = isLightTheme ? "#e2e8f0" : "#27272a";
+      const colAxis = isLightTheme ? "#cbd5e1" : "#3f3f46";
+
+      targetCtx.fillStyle = isLightTheme ? "#ffffff" : "#18181b";
+      targetCtx.fillRect(0, 0, w, h);
+
+      targetCtx.save();
+      targetCtx.translate(w / 2 + panX, h / 2 + panY);
+      targetCtx.scale(scaleFactor, scaleFactor);
+
+      // Grid Lines
+      targetCtx.strokeStyle = colGrid;
+      targetCtx.lineWidth = 1;
+      const gridSize = 50;
+      const extent = 1000;
+
+      targetCtx.beginPath();
+      for (let x = -extent; x <= extent; x += gridSize) {
+        targetCtx.moveTo(x, -extent);
+        targetCtx.lineTo(x, extent);
+      }
+      for (let y = -extent; y <= extent; y += gridSize) {
+        targetCtx.moveTo(-extent, y);
+        targetCtx.lineTo(extent, y);
+      }
+      targetCtx.stroke();
+
+      // Axis Crosshairs
+      targetCtx.strokeStyle = colAxis;
+      targetCtx.lineWidth = 1.5;
+      targetCtx.beginPath();
+      targetCtx.moveTo(-extent, 0);
+      targetCtx.lineTo(extent, 0);
+      targetCtx.moveTo(0, -extent);
+      targetCtx.lineTo(0, extent);
+      targetCtx.stroke();
+
+      // Active Scenario Render
+      const scen = Math.round(sim.get("scenario") || 0);
+      if (scen === 0) {
+        renderRestScene(targetCtx);
+      } else if (scen === 1) {
+        renderBusScene(targetCtx);
+      } else {
+        renderEarthScene(targetCtx);
+      }
+
+      targetCtx.restore();
+    }
+
+    // --- Animation & Telemetry Loop ---
+    function animate(timestamp) {
+      const elapsed = Math.min((timestamp - lastTimestamp) / 1000, 0.1) * speedMultiplier;
+      lastTimestamp = timestamp;
+
+      if (isRunning) {
+        accumulator += elapsed;
+        let steps = 0;
+        while (accumulator >= MICRO_DT && steps < 60) {
+          stepPhysics(MICRO_DT);
+          accumulator -= MICRO_DT;
+          steps++;
+        }
+      }
+
+      renderScene(ctx, userZoom);
+
+      // Telemetry HUD Updates
+      const scen = Math.round(sim.get("scenario") || 0);
+      let scenName = "1. Inertia of Rest";
+      let hudStateStr = coinState;
+      let hudVelStr = "0.00 m/s";
+      let hudAccelStr = "0.00 m/s²";
+
+      if (scen === 0) {
+        hudVelStr = `${Math.hypot(coinVx / 60, coinVy / 60).toFixed(2)} m/s`;
+        hudAccelStr = `${coinAy.toFixed(2)} m/s²`;
+      } else if (scen === 1) {
+        scenName = "2. Bus Sudden Braking";
+        if (passState === "FLYING") hudStateStr = "Passenger Flying (Inertia!)";
+        else if (passState === "FALLEN") hudStateStr = "Halted by Barrier Impact";
+        else if (busState === "BRAKING") hudStateStr = "Brakes Locked! Bus Slowing";
+        else hudStateStr = `Cruising at ${(sim.get("busSpeed") || 16.0).toFixed(1)} m/s`;
+
+        const v = passState === "FLYING" ? (sim.get("busSpeed") || 16.0) : (busCurrentVx / 20);
+        hudVelStr = `${v.toFixed(2)} m/s`;
+        hudAccelStr = (busState === "BRAKING" && busCurrentVx > 0) ? `-${(sim.get("busBrake") || 35.0).toFixed(2)} m/s²` : "0.00 m/s²";
+      } else {
+        scenName = "3. Earth Rotation Halt";
+        if (personEarthState === "AIRBORNE") hudStateStr = "Tangential Launch (Inertia!)";
+        else if (personEarthState === "LANDED") hudStateStr = "Landed on Earth Surface";
+        else hudStateStr = `Rotating at ${(sim.get("earthSpeed") || 1670).toFixed(0)} km/h`;
+
+        const v = personEarthState === "AIRBORNE" ? (Math.hypot(personEarthVx, personEarthVy) / 10) : (earthState === "ROTATING" ? 464 : 0);
+        hudVelStr = `${v.toFixed(2)} m/s`;
+        hudAccelStr = personEarthState === "AIRBORNE" ? `${(sim.get("earthG") || 9.8).toFixed(2)} m/s²` : "0.00 m/s²";
+      }
+
+      sim.setHud({
+        scenario: scenName,
+        state: hudStateStr,
+        velocity: hudVelStr,
+        accel: hudAccelStr,
+        time: `${simTime.toFixed(2)} s`
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    // --- Event Hooks & Integration ---
+    sim.onPlayChange((running) => {
+      initAudio();
+      isRunning = running;
+      const scen = Math.round(sim.get("scenario") || 0);
+      if (isRunning && scen === 0 && !isFlicked) {
+        triggerPrimaryAction();
+      }
+    });
+
+    sim.onReset(() => {
+      resetCurrentScenario();
+    });
+
+    sim.onSpeedChange((spd) => {
+      speedMultiplier = spd;
+    });
+
+    sim.onThemeChange((theme) => {
+      isLightTheme = theme.isLightTheme;
+    });
+
+    sim.onZoomChange((scale, offset) => {
+      userZoom = scale;
+      if (offset) {
+        panX = offset.x;
+        panY = offset.y;
+      }
+    });
+
+    sim.onControlChange((id, val) => {
+      if (id === "scenario") {
+        updateActiveScenarioView();
+        resetCurrentScenario();
+      }
+    });
+
+    // Resize handler
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = sim.canvasContainer.clientWidth;
+      const h = sim.canvasContainer.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    }
+    sim.onResize(resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
+
+    // Canvas Pointer Interaction (Tactile Trigger & Pan)
+    canvas.addEventListener("mousedown", (e) => {
+      initAudio();
+      if (e.button === 0 && !sim.loupeActive) {
+        if (e.shiftKey) {
+          isPanning = true;
+          startPanX = e.clientX - panX;
+          startPanY = e.clientY - panY;
+        } else {
+          triggerPrimaryAction();
+        }
+      }
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (isPanning) {
+        panX = e.clientX - startPanX;
+        panY = e.clientY - startPanY;
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      isPanning = false;
+    });
+
+    // Wheel zoom on canvas
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.1 : -0.1;
+      sim.setZoom(userZoom + delta);
+    }, { passive: false });
+
+    // --- Initialization ---
+    window.addEventListener("DOMContentLoaded", () => {
+      resizeCanvas();
+      updateActiveScenarioView();
+      resetCurrentScenario();
+      requestAnimationFrame(animate);
+    });
+  </script>
+</body>
+</html>

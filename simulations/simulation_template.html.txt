@@ -4,6 +4,8 @@
      SEKHAR TEACHING HUB — OFFICIAL 2D PHYSICS SIMULATION (q5.js + SekharSimUI)
      DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
      TYPOGRAPHY: Clean Balanced Typography (Smartboard Edition)
+     NOTE: 0 lines of <style> CSS. SekharSimUI handles all UI, Splitter,
+     Zoom/Pan, 3.75x Loupe, NOSLE (sim.labels), and Theme styling natively.
      ========================================================================= -->
 <head>
   <meta charset="UTF-8">
@@ -20,8 +22,8 @@
 
   <!-- Multi-Tier Resilient SekharSimUI Loader -->
   <script src="/lib/sekhar-sim-ui.min.js"></script>
-  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/personal-teaching-web-app@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
-  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/personal-teaching-web-app/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://raw.githubusercontent.com/WolfSekhar/teach/main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
 </head>
 <body>
   <script>
@@ -49,40 +51,6 @@
       onPlayChange: (running) => { isRunning = running; },
       onReset: () => { simTime = 0; x = 120; vx = 0; ax = 0; }
     });
-
-    // Non-Overlapping Smartboard Spatial Label Engine (NOSLE Standard)
-    class LabelOcclusionManager {
-      constructor() { this.obstacles = []; this.placedLabels = []; }
-      reset() {
-        while (this.obstacles.length > 0) this.obstacles.shift();
-        while (this.placedLabels.length > 0) this.placedLabels.shift();
-      }
-      addBoxObstacle(x, y, w, h, pad = 6) {
-        if (this.obstacles.length > 50) this.obstacles.shift();
-        this.obstacles.push({ left: x - pad, top: y - pad, right: x + w + pad, bottom: y + h + pad, type: 'box' });
-      }
-      addCircleObstacle(cx, cy, r, pad = 6) {
-        const totalR = r + pad;
-        if (this.obstacles.length > 50) this.obstacles.shift();
-        this.obstacles.push({ left: cx - totalR, top: cy - totalR, right: cx + totalR, bottom: cy + totalR, cx, cy, r: totalR, type: 'circle' });
-      }
-      isCollision(box) {
-        for (const obs of this.obstacles) {
-          if (obs.type === 'circle') {
-            const closestX = Math.max(box.left, Math.min(obs.cx, box.right));
-            const closestY = Math.max(box.top, Math.min(obs.cy, box.bottom));
-            if ((obs.cx - closestX) ** 2 + (obs.cy - closestY) ** 2 < obs.r * obs.r) return true;
-          } else if (!(box.right < obs.left || box.left > obs.right || box.bottom < obs.top || box.top > obs.bottom)) {
-            return true;
-          }
-        }
-        for (const lbl of this.placedLabels) {
-          if (!(box.right < lbl.left - 4 || box.left > lbl.right + 4 || box.bottom < lbl.top - 4 || box.top > lbl.bottom + 4)) return true;
-        }
-        return false;
-      }
-    }
-    const labelManager = new LabelOcclusionManager();
 
     new Q5('global', sim.canvasHost, (q) => {
       q.setup = () => { q.createCanvas(sim.width, sim.height); };
@@ -141,6 +109,8 @@
         q.rect(currentLen - 165, -25, 50, 50);
 
         if (sim.get('showLabels')) {
+          sim.labels.reset();
+          sim.labels.addBoxObstacle(currentLen - 165, -25, 50, 50, 8);
           q.fill(sim.theme.isDark ? 0 : 255); q.noStroke();
           q.textFont('Roboto Mono, monospace', 18); q.textStyle(q.NORMAL);
           q.textAlign(q.CENTER, q.CENTER);
