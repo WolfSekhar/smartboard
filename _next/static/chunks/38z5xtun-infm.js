@@ -34,8 +34,8 @@ REQUIREMENTS & SMARTBOARD STANDARDS:
    - NEVER write static <div class="sim-layout"> or <div class="controls-panel"> DOM; SekharSimUI generates all layout components dynamically.
    - NEVER link scripts to 'raw.githubusercontent.com' (browsers block raw GitHub scripts due to nosniff MIME mismatch; always use relative '../lib/', root '/lib/', or 'cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/').
 2. Declarative UI (SekharSimUI):
-   - Instantiate 'const sim = new SekharSimUI({ title, subtitle, sliders, toggles, presets, hud, onPlayChange, onReset });'.
-   - Include 2 to 4 parameter sliders with units, visual toggles, 2 to 3 presets, and on-canvas HUD keys. ALL visual toggles must strictly default to UNCHECKED / unticked ('checked: false').
+   - Instantiate 'const sim = new SekharSimUI({ title, subtitle, sliders, toggles, dropdowns, segmented, numberInputs, actions, progress, presets, hud, onPlayChange, onReset });'.
+   - Include parameter sliders, visual toggles, dropdowns, segmented tabs (e.g., Mode [1D|2D]), and presets as appropriate. ALL visual toggles must strictly default to UNCHECKED / unticked ('checked: false').
    - Use '<span class="tex-math" data-tex="..."></span>' for mathematical subscripts in sidebar labels, switches, and HUD ($v_x, v_y, H_{\\max}, R, \\theta, g, u$).
 3. Physics & q5.js Canvas:
    - Use 'new Q5("global", sim.canvasHost, (q) => { ... })' with 'q.createCanvas(sim.width, sim.height)'.
@@ -70,8 +70,8 @@ REQUIREMENTS & SMARTBOARD STANDARDS:
    - NEVER write static <div class="sim-layout"> or <div class="controls-panel"> DOM; SekharSimUI generates all layout components dynamically.
    - NEVER link scripts to 'raw.githubusercontent.com' (browsers block raw GitHub scripts due to nosniff MIME mismatch; always use relative '../lib/', root '/lib/', or 'cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/').
 2. Declarative UI (SekharSimUI):
-   - Instantiate 'const sim = new SekharSimUI({ title, subtitle, sliders, toggles, presets, hud, onPlayChange, onReset });'.
-   - 2 to 4 essential parameter sliders, visual toggles, 2 to 3 presets, and HUD telemetry keys. ALL visual toggles must strictly default to UNCHECKED / unticked ('checked: false').
+   - Instantiate 'const sim = new SekharSimUI({ title, subtitle, sliders, toggles, dropdowns, segmented, numberInputs, actions, progress, presets, hud, onPlayChange, onReset });'.
+   - Include essential sliders, visual toggles, dropdowns/segmented tabs, presets, and HUD telemetry keys. ALL visual toggles must strictly default to UNCHECKED / unticked ('checked: false').
    - Use '<span class="tex-math" data-tex="..."></span>' for mathematical subscripts in sidebar labels, switches, and HUD ($v_x, v_y, H_{\\max}, r, \\theta$).
 3. 3D WebGL Scene & OrbitControls:
    - Mount THREE.WebGLRenderer into 'sim.canvasHost' with 'sim.width' and 'sim.height'.
@@ -128,7 +128,7 @@ Output a single valid JSON object:
   "title": "${s}",
   "description": "Comprehensive study of core principles, derivations, and problem solving",
   "defaultSimulation": "custom",
-  "customHtmlSimulation": "<!DOCTYPE html><html><head><script src='../lib/q5.min.js'></script><script>window.Q5||document.write('<script src="/lib/q5.min.js"><\\\\/script>')</script><script src='../lib/sekhar-sim-ui.min.js'></script><script>window.SekharSimUI||document.write('<script src="/lib/sekhar-sim-ui.min.js"><\\\\/script>')</script><script>window.SekharSimUI||document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\\\\/script>')</script></head><body><script>const sim=new SekharSimUI({title:'${s}',subtitle:'Physics Simulation',sliders:[],toggles:[]});new Q5('global',sim.canvasHost,(q)=>{q.setup=()=>{q.createCanvas(sim.width,sim.height);};q.draw=()=>{q.background(sim.theme.canvasBg);};});</script></body></html>",
+  "customHtmlSimulation": "<!DOCTYPE html><html><head><script src='../lib/q5.min.js'></script><script>window.Q5||document.write('<script src="/lib/q5.min.js"><\\\\/script>')</script><script src='../lib/sekhar-sim-ui.min.js'></script><script>window.SekharSimUI||document.write('<script src="/lib/sekhar-sim-ui.min.js"><\\\\/script>')</script><script>window.SekharSimUI||document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\\\\/script>')</script></head><body><script>const sim=new SekharSimUI({title:'${s}',subtitle:'Physics Simulation',sliders:[],toggles:[],dropdowns:[],segmented:[],numberInputs:[],actions:[],progress:[]});new Q5('global',sim.canvasHost,(q)=>{q.setup=()=>{q.createCanvas(sim.width,sim.height);};q.draw=()=>{q.background(sim.theme.canvasBg);};});</script></body></html>",
   "latexSource": "# ${s}\\n\\nCore theoretical formulation and governing principles.\\n\\n---\\n\\n## Mathematical Formulation\\n\\n$$F = ma$$\\n\\n---\\n\\n## Key Applications\\n\\nPractical considerations and limiting cases.",
   "formulaLatex": [
     "F = ma",
