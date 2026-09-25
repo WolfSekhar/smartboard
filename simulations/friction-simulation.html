@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Static & Kinetic Friction — Sekhar Teaching Hub</title>
+
+  <!-- Multi-Tier Resilient q5.js Loader -->
+  <script src="../lib/q5.min.js"></script>
+  <script>window.Q5 || document.write('<script src="/lib/q5.min.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/npm/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>if (!window.p5 && window.Q5) window.p5 = window.Q5;</script>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="../lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://wolfsekhar.github.io/smartboard/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    let isRunning = false;
+    const G = 9.8; // m/s^2
+    const PIXELS_PER_METER = 80;
+
+    // Physical State Variables
+    let posX = 0; // meters from start
+    let velX = 0; // m/s
+    let accX = 0; // m/s^2
+    let frictionForce = 0; // N
+    let isLocked = true; // Static friction lock
+    let simTime = 0;
+
+    const sim = new SekharSimUI({
+      title: "Friction: Static & Kinetic",
+      subtitle: "Laws of Motion & Surface Contact Dynamics",
+      sliders: [
+        {
+          id: "appliedForce",
+          label: "Applied Force (<span class=\"tex-math\" data-tex=\"F_{\\text{ext}}\">F_ext</span>)",
+          min: 0,
+          max: 100,
+          step: 1,
+          value: 20,
+          unit: "N"
+        },
+        {
+          id: "mass",
+          label: "Block Mass (<span class=\"tex-math\" data-tex=\"m\">m</span>)",
+          min: 1.0,
+          max: 20.0,
+          step: 0.5,
+          value: 5.0,
+          unit: "kg"
+        },
+        {
+          id: "muStatic",
+          label: "Static Friction (<span class=\"tex-math\" data-tex=\"\\mu_s\">μ_s</span>)",
+          min: 0.1,
+          max: 0.9,
+          step: 0.05,
+          value: 0.5,
+          unit: ""
+        },
+        {
+          id: "muKinetic",
+          label: "Kinetic Friction (<span class=\"tex-math\" data-tex=\"\\mu_k\">μ_k</span>)",
+          min: 0.05,
+          max: 0.8,
+          step: 0.05,
+          value: 0.35,
+          unit: ""
+        }
+      ],
+      toggles: [
+        {
+          id: "showVectors",
+          label: "Free-Body Vectors (<span class=\"tex-math\" data-tex=\"N, mg, F, f\">N, mg, F, f</span>)",
+          checked: false
+        },
+        {
+          id: "showTrail",
+          label: "Trajectory Trail",
+          checked: false
+        }
+      ],
+      presets: [
+        {
+          label: "Wood on Wood (Moderate)",
+          values: { appliedForce: 20, mass: 5.0, muStatic: 0.5, muKinetic: 0.35 }
+        },
+        {
+          label: "Rubber on Concrete (High Grip)",
+          values: { appliedForce: 45, mass: 5.0, muStatic: 0.85, muKinetic: 0.65 }
+        },
+        {
+          label: "Ice on Ice (Low Friction)",
+          values: { appliedForce: 10, mass: 5.0, muStatic: 0.15, muKinetic: 0.08 }
+        }
+      ],
+      hud: [
+        "state",
+        "normalForce",
+        "friction",
+        "netForce",
+        "acceleration",
+        "velocity",
+        "distance"
+      ],
+      onPlayChange: (running) => {
+        isRunning = running;
+      },
+      onReset: () => {
+        posX = 0;
+        velX = 0;
+        accX = 0;
+        frictionForce = 0;
+        isLocked = true;
+        simTime = 0;
+        trail.length = 0;
+      }
+    });
+
+    const trail = [];
+
+    new Q5("global", sim.canvasHost, (q) => {
+      q.setup = () => {
+        q.createCanvas(sim.width, sim.height);
+      };
+
+      sim.onResize((w, h) => {
+        q.resizeCanvas(w, h);
+      });
+
+      // Helper function to draw clear 3.5px vector arrows
+      function drawVectorArrow(x, y, dx, dy, col, label) {
+        const mag = Math.hypot(dx, dy);
+        if (mag < 2) return;
+        q.push();
+        q.stroke(col);
+        q.fill(col);
+        q.strokeWeight(3.5);
+        q.line(x, y, x + dx, y + dy);
+
+        // Arrow head
+        const angle = Math.atan2(dy, dx);
+        const headLen = 9;
+        q.push();
+        q.translate(x + dx, y + dy);
+        q.rotate(angle);
+        q.noStroke();
+        q.triangle(0, 0, -headLen, -headLen * 0.5, -headLen, headLen * 0.5);
+        q.pop();
+
+        if (label) {
+          q.noStroke();
+          q.fill(col);
+          q.textSize(12);
+          q.textAlign(q.CENTER, q.CENTER);
+          q.text(label, x + dx * 1.15, y + dy * 1.15);
+        }
+        q.pop();
+      }
+
+      q.draw = () => {
+        const F_ext = sim.get("appliedForce");
+        const m = sim.get("mass");
+        const mu_s = sim.get("muStatic");
+        const mu_k = Math.min(sim.get("muKinetic"), mu_s); // Physical constraint: mu_k <= mu_s
+        const speedMultiplier = sim.speed;
+
+        const N = m * G;
+        const maxStaticFriction = mu_s * N;
+        const kineticFrictionMag = mu_k * N;
+
+        // 1000 Hz Substepping Physics Loop
+        if (isRunning) {
+          const frameDt = (1 / 60) * speedMultiplier;
+          const subSteps = 16;
+          const sdt = frameDt / subSteps;
+
+          for (let s = 0; s < subSteps; s++) {
+            if (isLocked) {
+              if (Math.abs(F_ext) > maxStaticFriction) {
+                isLocked = false;
+                frictionForce = -Math.sign(F_ext) * kineticFrictionMag;
+                accX = (F_ext + frictionForce) / m;
+                velX += accX * sdt;
+                posX += velX * sdt;
+              } else {
+                frictionForce = -F_ext;
+                accX = 0;
+                velX = 0;
+              }
+            } else {
+              // Sliding in kinetic friction regime
+              const dir = velX !== 0 ? Math.sign(velX) : (F_ext !== 0 ? Math.sign(F_ext) : 1);
+              frictionForce = -dir * kineticFrictionMag;
+              const netF = F_ext + frictionForce;
+              accX = netF / m;
+
+              const prevVel = velX;
+              velX += accX * sdt;
+
+              // Check if velocity crossed zero under opposing applied force
+              if ((prevVel > 0 && velX <= 0) || (prevVel < 0 && velX >= 0)) {
+                if (Math.abs(F_ext) <= maxStaticFriction) {
+                  velX = 0;
+                  accX = 0;
+                  isLocked = true;
+                  frictionForce = -F_ext;
+                }
+              }
+              posX += velX * sdt;
+            }
+            simTime += sdt;
+          }
+
+          if (sim.get("showTrail")) {
+            trail.push({ x: posX, t: simTime });
+            if (trail.length > 300) trail.shift();
+          }
+        }
+
+        // Render Canvas Visuals
+        q.background(sim.theme.canvasBg);
+
+        const groundY = q.height * 0.65;
+        const blockW = Math.max(50, Math.min(110, 40 + m * 4));
+        const blockH = Math.max(40, Math.min(90, 30 + m * 3));
+
+        // Coordinate transformation: loop or scroll track
+        const trackLengthMeters = (q.width - 200) / PIXELS_PER_METER;
+        const visualX = 100 + ((posX % trackLengthMeters) + trackLengthMeters) % trackLengthMeters * PIXELS_PER_METER;
+        const visualY = groundY - blockH;
+
+        // Ground Plane & Surface Texture
+        q.push();
+        q.stroke(sim.theme.border || "#555");
+        q.strokeWeight(2.5);
+        q.line(0, groundY, q.width, groundY);
+
+        // Surface texture hatch marks
+        q.strokeWeight(1);
+        q.stroke(sim.theme.subtitle || "#888");
+        for (let i = 0; i < q.width; i += 20) {
+          q.line(i, groundY, i - 10, groundY + 12);
+        }
+        q.pop();
+
+        // Trail representation
+        if (sim.get("showTrail") && trail.length > 1) {
+          q.push();
+          q.noFill();
+          q.stroke(sim.theme.accent || "#3584e4");
+          q.strokeWeight(2);
+          q.beginShape();
+          for (let p of trail) {
+            const px = 100 + ((p.x % trackLengthMeters) + trackLengthMeters) % trackLengthMeters * PIXELS_PER_METER + blockW / 2;
+            q.vertex(px, groundY - 2);
+          }
+          q.endShape();
+          q.pop();
+        }
+
+        // Block with periodic breathing glow halo when in motion
+        q.push();
+        const blockCenterX = visualX + blockW / 2;
+        const blockCenterY = visualY + blockH / 2;
+
+        if (isRunning && !isLocked) {
+          const auraPulse = Math.sin(simTime * 6) * 4 + 4;
+          q.noFill();
+          q.stroke(sim.theme.accent || "#3584e4");
+          q.strokeWeight(2.5);
+          q.rect(visualX - auraPulse, visualY - auraPulse, blockW + auraPulse * 2, blockH + auraPulse * 2);
+        }
+
+        // Block Body
+        q.fill(sim.theme.cardBg || "#2e3440");
+        q.stroke(sim.theme.accent || "#3584e4");
+        q.strokeWeight(2.5);
+        q.rect(visualX, visualY, blockW, blockH);
+
+        // Mass label in block center
+        q.noStroke();
+        q.fill(sim.theme.text || "#fff");
+        q.textSize(13);
+        q.textAlign(q.CENTER, q.CENTER);
+        q.text(`${m.toFixed(1)} kg`, blockCenterX, blockCenterY);
+        q.pop();
+
+        // Free-Body Vectors Overlay
+        if (sim.get("showVectors")) {
+          const scaleForce = 1.3; // px per Newton
+
+          // 1. Normal Force (Up, Cyan)
+          drawVectorArrow(blockCenterX, visualY, 0, -N * scaleForce * 0.4, "#33d17a", `N=${N.toFixed(0)}N`);
+
+          // 2. Weight / Gravity (Down, Yellow)
+          drawVectorArrow(blockCenterX, groundY, 0, N * scaleForce * 0.4, "#f6d32d", `mg=${N.toFixed(0)}N`);
+
+          // 3. Applied Force (Right, Blue)
+          if (F_ext > 0) {
+            drawVectorArrow(visualX + blockW, blockCenterY, F_ext * scaleForce, 0, "#3584e4", `F=${F_ext.toFixed(0)}N`);
+          }
+
+          // 4. Friction Force (Left, Red)
+          if (Math.abs(frictionForce) > 0.1) {
+            const fLen = frictionForce * scaleForce;
+            drawVectorArrow(visualX, groundY - 2, fLen, 0, "#e01b24", `f=${Math.abs(frictionForce).toFixed(1)}N`);
+          }
+        }
+
+        // Telemetry HUD Update
+        const stateDesc = isLocked
+          ? "🔒 STATIC LOCK (f_s = F_ext)"
+          : (velX > 0 ? "⚡ SLIDING RIGHT (Kinetic)" : "⚡ SLIDING LEFT (Kinetic)");
+
+        sim.setHud({
+          state: stateDesc,
+          normalForce: `${N.toFixed(1)} N`,
+          friction: `${Math.abs(frictionForce).toFixed(1)} N (max static: ${maxStaticFriction.toFixed(1)} N)`,
+          netForce: `${(F_ext + frictionForce).toFixed(1)} N`,
+          acceleration: `${accX.toFixed(2)} m/s²`,
+          velocity: `${velX.toFixed(2)} m/s`,
+          distance: `${posX.toFixed(2)} m`
+        });
+      };
+    });
+  </script>
+</body>
+</html>
