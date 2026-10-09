@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — MODULAR 2D PHYSICS SIMULATION SHELL (q5.js + SekharSimUI)
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
+     ZERO <style> CSS & ZERO STATIC DOM BOILERPLATE:
+     All UI tokens, themes, splitters, loupe magnifier, and controls are generated
+     natively by SekharSimUI.
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Modular Physics Simulation — Sekhar Teaching Hub</title>
+
+  <!-- Multi-Tier Resilient q5.js Loader -->
+  <script src="../../public/lib/q5.min.js"></script>
+  <script>window.Q5 || document.write('<script src="../lib/q5.min.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="/lib/q5.min.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/npm/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://unpkg.com/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>if (!window.p5 && window.Q5) window.p5 = window.Q5;</script>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="../../public/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="../lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://wolfsekhar.github.io/smartboard/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <!-- Modular Development Scripts (Inlined by build.js in production) -->
+
+  <script>
+// ==========================================
+// MODULE: config.js
+// ==========================================
+/**
+ * Module: config.js
+ * Declarative UI Configuration for Rotational Motion Simulation
+ */
+
+window.SimConfig = {
+  title: "Rotational Motion & Dynamics",
+  subtitle: "Torque, Moment of Inertia & Angular Acceleration — Sekhar Teaching Hub",
+  sliders: [
+    { id: "torque", label: "Applied Torque (τ)", min: -10, max: 10, step: 0.5, value: 3.0, unit: "N·m" },
+    { id: "inertia", label: "Moment of Inertia (I)", min: 0.5, max: 5.0, step: 0.1, value: 1.5, unit: "kg·m²" },
+    { id: "radius", label: "Disk Radius (R)", min: 0.6, max: 2.0, step: 0.1, value: 1.2, unit: "m" },
+    { id: "damping", label: "Bearing Friction (β)", min: 0, max: 0.4, step: 0.02, value: 0.06, unit: "N·m·s/rad" }
+  ],
+  toggles: [
+    { id: "showVectors", label: "Tangential Velocity (v = ωR)", checked: false },
+    { id: "showCentripetal", label: "Centripetal Accel (a_c = ω²R)", checked: false },
+    { id: "showAngle", label: "Angular Arc (θ)", checked: false },
+    { id: "showEnergy", label: "Rotational Energy (K_rot)", checked: false }
+  ],
+  presets: [
+    { label: "Standard Acceleration", values: { torque: 3.0, inertia: 1.5, radius: 1.2, damping: 0.06 } },
+    { label: "High Torque Spin-Up", values: { torque: 8.0, inertia: 1.0, radius: 1.0, damping: 0.02 } },
+    { label: "Frictional Damping", values: { torque: 0.0, inertia: 1.5, radius: 1.2, damping: 0.25 } }
+  ],
+  hud: ["time", "angle", "omega", "alpha", "energy"]
+};
+
+// ==========================================
+// MODULE: state.js
+// ==========================================
+/**
+ * Module: state.js
+ * Physical State for Rotational Motion
+ */
+
+window.SimState = {
+  isRunning: false,
+  simTime: 0,
+
+  // Angular kinematic variables
+  theta: 0,      // Angular position (radians)
+  omega: 0,      // Angular velocity (rad/s)
+  alpha: 0,      // Angular acceleration (rad/s²)
+
+  // Energy & Metrics
+  kRot: 0,       // Rotational Kinetic Energy (Joules)
+  revCount: 0,   // Full revolutions completed
+
+  // Rim trajectory buffer
+  trail: [],
+
+  reset: function(sim) {
+    this.simTime = 0;
+    this.theta = 0;
+    this.omega = 0;
+    this.alpha = 0;
+    this.kRot = 0;
+    this.revCount = 0;
+    this.trail = [];
+  }
+};
+
+// ==========================================
+// MODULE: physics.js
+// ==========================================
+/**
+ * Module: physics.js
+ * 1000Hz Micro-Stepping Rotational Dynamics Integrator
+ * Solves: τ_net = I * α, with τ_net = τ_applied - β * ω
+ */
+
+window.SimPhysics = {
+  update: function(dt, sim, state) {
+    if (!state.isRunning) return;
+
+    const torque = sim.get("torque");
+    const inertia = Math.max(0.1, sim.get("inertia"));
+    const damping = sim.get("damping");
+    const speed = sim.speed || 1.0;
+
+    // 1000Hz sub-stepping: 16 micro-steps per frame
+    const subSteps = 16;
+    const effectiveDt = dt * speed;
+    const sdt = effectiveDt / subSteps;
+
+    for (let step = 0; step < subSteps; step++) {
+      // Newton's Second Law for Rotation: τ_net = I * α
+      const netTorque = torque - (damping * state.omega);
+      state.alpha = netTorque / inertia;
+
+      // Numerical integration (Euler-Cromer)
+      state.omega += state.alpha * sdt;
+      state.theta += state.omega * sdt;
+      state.simTime += sdt;
+    }
+
+    // Rotational Kinetic Energy: K = 1/2 * I * ω²
+    state.kRot = 0.5 * inertia * (state.omega * state.omega);
+    state.revCount = Math.floor(Math.abs(state.theta) / (2 * Math.PI));
+
+    // Update Telemetry HUD
+    if (sim.setHud) {
+      sim.setHud("time", `${state.simTime.toFixed(2)} s`);
+      sim.setHud("angle", `${state.theta.toFixed(2)} rad (${(state.theta / (2 * Math.PI)).toFixed(1)} rev)`);
+      sim.setHud("omega", `${state.omega.toFixed(2)} rad/s`);
+      sim.setHud("alpha", `${state.alpha.toFixed(2)} rad/s²`);
+      sim.setHud("energy", `${state.kRot.toFixed(2)} J`);
+    }
+
+    // Record rim trajectory
+    const radiusPx = (sim.get("radius") || 1.2) * 90;
+    const px = Math.cos(state.theta) * radiusPx;
+    const py = Math.sin(state.theta) * radiusPx;
+    state.trail.push({ x: px, y: py });
+    if (state.trail.length > 100) {
+      state.trail.shift();
+    }
+  }
+};
+
+// ==========================================
+// MODULE: renderer.js
+// ==========================================
+/**
+ * Module: renderer.js
+ * Visual Apparatus & Vector Renderer for Rotational Motion
+ */
+
+window.SimRenderer = {
+  setup: function(q, sim) {
+    q.createCanvas(sim.width, sim.height);
+  },
+
+  resize: function(w, h, q) {
+    q.resizeCanvas(w, h);
+  },
+
+  draw: function(q, sim, state) {
+    const theme = sim.theme;
+    q.background(theme.canvasBg);
+
+    const cx = q.width / 2;
+    const cy = q.height / 2;
+    const radiusMeters = sim.get("radius") || 1.2;
+    const rPx = radiusMeters * 90; // Screen radius (px)
+
+    q.push();
+    q.translate(cx, cy);
+
+    // 1. Reference Horizontal Axis (Zero Angle Line)
+    q.stroke(theme.border || "#373b49");
+    q.strokeWeight(1);
+    q.line(-rPx - 40, 0, rPx + 40, 0);
+    q.line(0, -rPx - 40, 0, rPx + 40);
+
+    // 2. Angular Arc (θ)
+    if (sim.get("showAngle")) {
+      const displayAngle = state.theta % (2 * Math.PI);
+      q.noFill();
+      q.stroke("#3b82f6");
+      q.strokeWeight(2);
+      const arcR = rPx * 0.45;
+      const startA = state.omega >= 0 ? 0 : displayAngle;
+      const endA = state.omega >= 0 ? displayAngle : 0;
+      q.arc(0, 0, arcR * 2, arcR * 2, startA, endA);
+      
+      // Arc Label
+      q.fill("#3b82f6");
+      q.noStroke();
+      q.textSize(12);
+      q.textAlign(q.LEFT, q.BOTTOM);
+      q.text(`θ = ${(state.theta).toFixed(2)} rad`, arcR * 0.8, -8);
+    }
+
+    // 3. Rotating Flywheel Disk
+    q.push();
+    q.rotate(state.theta);
+
+    // Disk Body
+    q.fill(theme.surfaceElevated || "#1a1c21");
+    q.stroke(theme.borderStrong || "#4b5563");
+    q.strokeWeight(3);
+    q.ellipse(0, 0, rPx * 2, rPx * 2);
+
+    // Radial Spokes (Crosshair + Diagonals)
+    q.stroke(theme.border || "#373b49");
+    q.strokeWeight(1.5);
+    q.line(-rPx, 0, rPx, 0);
+    q.line(0, -rPx, 0, rPx);
+    const diag = rPx * 0.7071;
+    q.line(-diag, -diag, diag, diag);
+    q.line(-diag, diag, diag, -diag);
+
+    // Highlighted Reference Radius
+    q.stroke(theme.accent || "#00f0ff");
+    q.strokeWeight(3);
+    q.line(0, 0, rPx, 0);
+
+    // Rim Marker Point
+    q.fill("#ff4444");
+    q.stroke(theme.text);
+    q.strokeWeight(2);
+    q.ellipse(rPx, 0, 16, 16);
+
+    q.pop(); // End Disk Rotation
+
+    // 4. Central Pivot Axle
+    q.fill(theme.subtitle || "#6b7280");
+    q.stroke(theme.text);
+    q.strokeWeight(2);
+    q.ellipse(0, 0, 20, 20);
+    q.fill(theme.canvasBg);
+    q.noStroke();
+    q.ellipse(0, 0, 8, 8);
+
+    // 5. Point Position on Rim in World Coordinates
+    const rimX = Math.cos(state.theta) * rPx;
+    const rimY = Math.sin(state.theta) * rPx;
+
+    // 6. Tangential Velocity Vector (v = ω * R)
+    if (sim.get("showVectors")) {
+      const vMag = state.omega * radiusMeters;
+      const vScale = 12; // visual scaling
+      // Tangential unit vector: (-sin θ, cos θ)
+      const tvX = -Math.sin(state.theta) * (vMag * vScale);
+      const tvY = Math.cos(state.theta) * (vMag * vScale);
+
+      if (Math.abs(vMag) > 0.05) {
+        q.stroke("#00ff88");
+        q.strokeWeight(3);
+        q.line(rimX, rimY, rimX + tvX, rimY + tvY);
+
+        // Arrowhead
+        const headLen = 8;
+        const angle = Math.atan2(tvY, tvX);
+        q.line(rimX + tvX, rimY + tvY, rimX + tvX - headLen * Math.cos(angle - 0.4), rimY + tvY - headLen * Math.sin(angle - 0.4));
+        q.line(rimX + tvX, rimY + tvY, rimX + tvX - headLen * Math.cos(angle + 0.4), rimY + tvY - headLen * Math.sin(angle + 0.4));
+
+        // Label
+        q.fill("#00ff88");
+        q.noStroke();
+        q.textSize(11);
+        q.textAlign(q.LEFT, q.BOTTOM);
+        q.text(`v = ${Math.abs(vMag).toFixed(2)} m/s`, rimX + tvX + 4, rimY + tvY);
+      }
+    }
+
+    // 7. Centripetal Acceleration Vector (a_c = ω² * R towards center)
+    if (sim.get("showCentripetal")) {
+      const acMag = (state.omega * state.omega) * radiusMeters;
+      const acScale = 4; // visual scaling
+      // Inward unit vector: (-cos θ, -sin θ)
+      const acX = -Math.cos(state.theta) * Math.min(rPx * 0.9, acMag * acScale);
+      const acY = -Math.sin(state.theta) * Math.min(rPx * 0.9, acMag * acScale);
+
+      if (acMag > 0.1) {
+        q.stroke("#f59e0b");
+        q.strokeWeight(3);
+        q.line(rimX, rimY, rimX + acX, rimY + acY);
+
+        // Arrowhead
+        const headLen = 8;
+        const angle = Math.atan2(acY, acX);
+        q.line(rimX + acX, rimY + acY, rimX + acX - headLen * Math.cos(angle - 0.4), rimY + acY - headLen * Math.sin(angle - 0.4));
+        q.line(rimX + acX, rimY + acY, rimX + acX - headLen * Math.cos(angle + 0.4), rimY + acY - headLen * Math.sin(angle + 0.4));
+
+        // Label
+        q.fill("#f59e0b");
+        q.noStroke();
+        q.textSize(11);
+        q.textAlign(q.LEFT, q.BOTTOM);
+        q.text(`a_c = ${acMag.toFixed(1)} m/s²`, rimX + acX + 4, rimY + acY);
+      }
+    }
+
+    // 8. Torque Indicator on Rim
+    const appliedTorque = sim.get("torque");
+    if (Math.abs(appliedTorque) > 0.1) {
+      q.stroke("#ec4899");
+      q.strokeWeight(2);
+      const tDir = appliedTorque > 0 ? 1 : -1;
+      const arcR = rPx + 20;
+      q.noFill();
+      q.arc(0, 0, arcR * 2, arcR * 2, -0.4, 0.4);
+      q.fill("#ec4899");
+      q.noStroke();
+      q.textSize(11);
+      q.textAlign(q.LEFT, q.CENTER);
+      q.text(`τ = ${appliedTorque.toFixed(1)} N·m`, arcR + 8, 0);
+    }
+
+    q.pop();
+
+    // 9. Rotational Energy Bar (HUD)
+    if (sim.get("showEnergy")) {
+      const barW = 140;
+      const barH = 12;
+      const startX = 20;
+      const startY = q.height - 35;
+
+      q.fill(theme.border);
+      q.rect(startX, startY, barW, barH);
+      q.fill("#00f0ff");
+      const maxK = 100; // Reference max
+      const fillW = Math.min(barW, (state.kRot / maxK) * barW);
+      q.rect(startX, startY, fillW, barH);
+
+      q.fill(theme.text);
+      q.textSize(10);
+      q.textAlign(q.LEFT, q.BOTTOM);
+      q.text(`K_rot = ${state.kRot.toFixed(2)} J`, startX, startY - 4);
+    }
+  }
+};
+
+// ==========================================
+// MODULE: main.js
+// ==========================================
+/**
+ * Module: main.js
+ * Bootstrap Coordinator
+ * Wires together SekharSimUI, SimState, SimPhysics, and SimRenderer.
+ */
+
+(function initSimulation() {
+  const config = window.SimConfig;
+  const state = window.SimState;
+  const physics = window.SimPhysics;
+  const renderer = window.SimRenderer;
+
+  // Initialize SekharSimUI
+  const sim = new SekharSimUI({
+    ...config,
+    onPlayChange: (running) => {
+      state.isRunning = running;
+    },
+    onReset: () => {
+      state.reset(sim);
+    }
+  });
+
+  // Attach q5.js Canvas Engine
+  new Q5('global', sim.canvasHost, (q) => {
+    q.setup = () => {
+      renderer.setup(q, sim);
+    };
+
+    sim.onResize((w, h) => {
+      renderer.resize(w, h, q);
+    });
+
+    q.draw = () => {
+      // 1. Run 1000Hz fixed-timestep physics update
+      physics.update(1 / 60, sim, state);
+
+      // 2. Render visual apparatus and telemetry
+      renderer.draw(q, sim, state);
+    };
+  });
+})();
+
+  </script>
+</body>
+</html>
