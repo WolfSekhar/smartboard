@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — MODULAR 2D PHYSICS SIMULATION SHELL (q5.js + SekharSimUI)
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
+     ZERO <style> CSS & ZERO STATIC DOM BOILERPLATE:
+     All UI tokens, themes, splitters, loupe magnifier, and controls are generated
+     natively by SekharSimUI.
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Modular Physics Simulation — Sekhar Teaching Hub</title>
+
+  <!-- Multi-Tier Resilient q5.js Loader -->
+  <script src="../../public/lib/q5.min.js"></script>
+  <script>window.Q5 || document.write('<script src="../lib/q5.min.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="/lib/q5.min.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://cdn.jsdelivr.net/npm/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>window.Q5 || document.write('<script src="https://unpkg.com/q5@4.8.0/q5.js"><\/script>')</script>
+  <script>if (!window.p5 && window.Q5) window.p5 = window.Q5;</script>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="../../public/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="../lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://wolfsekhar.github.io/smartboard/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <!-- Modular Development Scripts (Inlined by build.js in production) -->
+
+  <script>
+// ==========================================
+// MODULE: config.js
+// ==========================================
+let isRunning = false;
+const sim = new SekharSimUI({
+  title: "Circular Motion",
+  subtitle: "CBSE Class 11 Physics",
+  sliders: [
+    { id: "radius", label: "Radius (r)", min: 50, max: 200, step: 10, value: 100, unit: "m" },
+    { id: "omega", label: "Angular Velocity (ω)", min: 0.1, max: 5.0, step: 0.1, value: 1.0, unit: "rad/s" },
+    { id: "mass", label: "Mass (m)", min: 0.1, max: 10.0, step: 0.1, value: 1.0, unit: "kg" }
+  ],
+  toggles: [
+    { id: "showVelocity", label: "Velocity Vector (v)", checked: false },
+    { id: "showAcceleration", label: "Centripetal Accel (a_c)", checked: false },
+    { id: "showForce", label: "Centripetal Force (F_c)", checked: false }
+  ],
+  hud: ["time", "velocity", "acceleration", "force"],
+  onPlayChange: (running) => { isRunning = running; },
+  onReset: () => { window.simState.reset(); }
+});
+
+// ==========================================
+// MODULE: state.js
+// ==========================================
+window.simState = {
+  theta: 0,
+  time: 0,
+  trail: [],
+  reset: function() {
+    this.theta = 0;
+    this.time = 0;
+    this.trail = [];
+  }
+};
+
+// ==========================================
+// MODULE: physics.js
+// ==========================================
+function updatePhysics(dt) {
+  const r = sim.get('radius');
+  const omega = sim.get('omega');
+  const m = sim.get('mass');
+
+  // Sub-stepping
+  const subSteps = 16;
+  const sdt = dt / subSteps;
+  
+  for (let s = 0; s < subSteps; s++) {
+    window.simState.theta += omega * sdt;
+    window.simState.time += sdt;
+  }
+  
+  // Keep theta bounded for numeric stability
+  window.simState.theta = window.simState.theta % (2 * Math.PI);
+
+  const v = r * omega;
+  const ac = omega * omega * r;
+  const fc = m * ac;
+
+  // Track path
+  const x = r * Math.cos(window.simState.theta);
+  const y = r * Math.sin(window.simState.theta);
+  window.simState.trail.push({x, y});
+  if (window.simState.trail.length > 200) window.simState.trail.shift();
+
+  sim.setHud({
+    time: `${window.simState.time.toFixed(2)} s`,
+    velocity: `${v.toFixed(1)} m/s`,
+    acceleration: `${ac.toFixed(1)} m/s²`,
+    force: `${fc.toFixed(1)} N`
+  });
+}
+
+// ==========================================
+// MODULE: renderer.js
+// ==========================================
+function renderApparatus(q) {
+  const r = sim.get('radius');
+  const omega = sim.get('omega');
+  
+  q.push();
+  // Center coordinate system
+  q.translate(sim.width / 2, sim.height / 2);
+  
+  // Draw path
+  q.noFill();
+  q.stroke(sim.theme.gridColor || "#555");
+  q.strokeWeight(1);
+  q.circle(0, 0, r * 2);
+  
+  // Draw trail
+  q.stroke(sim.theme.primary || "#3b82f6");
+  q.strokeWeight(2);
+  q.beginShape();
+  for (let pt of window.simState.trail) {
+    q.vertex(pt.x, pt.y);
+  }
+  q.endShape();
+  
+  // Draw mass
+  const x = r * Math.cos(window.simState.theta);
+  const y = r * Math.sin(window.simState.theta);
+  q.fill(sim.theme.primary || "#3b82f6");
+  q.noStroke();
+  q.circle(x, y, 20);
+
+  // String to center
+  q.stroke(sim.theme.gridColor || "#555");
+  q.strokeWeight(2);
+  q.line(0, 0, x, y);
+  
+  // Vectors
+  if (sim.get('showVelocity')) {
+    const vx = -r * Math.sin(window.simState.theta);
+    const vy = r * Math.cos(window.simState.theta);
+    // Normalize and scale for visibility
+    const len = Math.sqrt(vx*vx + vy*vy);
+    if(len > 0) {
+        const scale = 50;
+        drawVector(q, x, y, (vx/len)*scale, (vy/len)*scale, "#10b981", "v");
+    }
+  }
+  
+  if (sim.get('showAcceleration') || sim.get('showForce')) {
+    const ax = -x; 
+    const ay = -y;
+    // Normalize and scale for visibility
+    const len = Math.sqrt(ax*ax + ay*ay);
+    if(len > 0) {
+        const scale = 50;
+        drawVector(q, x, y, (ax/len)*scale, (ay/len)*scale, "#ef4444", sim.get('showForce') ? "F_c" : "a_c");
+    }
+  }
+  
+  q.pop();
+}
+
+function drawVector(q, x, y, vx, vy, color, label) {
+  q.push();
+  q.stroke(color);
+  q.fill(color);
+  q.strokeWeight(3);
+  q.translate(x, y);
+  q.line(0, 0, vx, vy);
+  
+  // Arrowhead
+  let angle = Math.atan2(vy, vx);
+  q.translate(vx, vy);
+  q.rotate(angle);
+  q.triangle(0, 0, -10, 5, -10, -5);
+  q.pop();
+}
+
+// ==========================================
+// MODULE: main.js
+// ==========================================
+new Q5('global', sim.canvasHost, (q) => {
+  q.setup = () => { q.createCanvas(sim.width, sim.height); };
+  sim.onResize((w, h) => q.resizeCanvas(w, h));
+
+  q.draw = () => {
+    if (isRunning) {
+      updatePhysics((1 / 60) * sim.speed);
+    }
+    
+    q.background(sim.theme.canvasBg || "#111");
+    if (sim.labels) sim.labels.reset();
+    renderApparatus(q);
+  };
+});
+
+  </script>
+</body>
+</html>
