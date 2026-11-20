@@ -2,5 +2,5 @@
 :HL["/smartboard/_next/static/chunks/3cnnsw8f0jqve.css","style"]
 :HC["/",""]
 :HL["/smartboard/_next/static/chunks/06dupwd8w7d8h.css","style"]
-:HL["/smartboard/_next/static/chunks/29-t_od1lrxs9.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"yAeVlAv1hViiX2K79G1_0"}
+:HL["/smartboard/_next/static/chunks/3edinsxpz-3xz.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"_rY0bMWo0qnYxip5dmcc4"}
