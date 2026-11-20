@@ -99,9 +99,10 @@ self.addEventListener("activate", (event) => {
         }
 
         const cacheNames = await caches.keys();
+        const preservedCaches = new Set([CACHE_NAME, "teaching-hub-simulations-v1"]);
         await Promise.all(
           cacheNames.map((name) => {
-            if (name !== CACHE_NAME) {
+            if (!preservedCaches.has(name)) {
               return caches.delete(name);
             }
           })

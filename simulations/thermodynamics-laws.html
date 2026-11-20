@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- =========================================================================
+     SEKHAR TEACHING HUB — THREE LAWS OF THERMODYNAMICS SIMULATION
+     DESIGN SYSTEM: GTK4 / Libadwaita (GNOME 45+ HIG) — Zero-Radius Standard
+     ZERO CSS STYLESHEETS & ZERO STATIC DOM BOILERPLATE:
+     All UI tokens, themes, splitters, loupe magnifier, and controls are generated
+     natively by SekharSimUI.
+     ========================================================================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Laws of Thermodynamics — Sekhar Teaching Hub</title>
+
+  <!-- Multi-Tier Resilient SekharSimUI Loader -->
+  <script src="../../public/lib/sekhar-sim-ui.min.js"></script>
+  <script>window.SekharSimUI || document.write('<script src="../lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/teach@main/public/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://cdn.jsdelivr.net/gh/WolfSekhar/smartboard@main/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+  <script>window.SekharSimUI || document.write('<script src="https://wolfsekhar.github.io/smartboard/lib/sekhar-sim-ui.min.js"><\/script>')</script>
+</head>
+<body>
+  <script>
+    (function () {
+      "use strict";
+
+      // Thermodynamic Constants (Scaled for Educational Visualization)
+      const R_GAS = 8.314;       // Ideal gas constant (J/(mol·K))
+      const CV_MOLAR = 1.5 * R_GAS; // Monatomic ideal gas heat capacity (12.47 J/(mol·K))
+      const P0 = 101.3;          // Reference pressure (kPa)
+      const T0 = 300.0;          // Reference temperature (K)
+      const V0 = 24.6;           // Reference volume (L)
+
+      // 1. Initialize SekharSimUI Declarative Container
+      const sim = new SekharSimUI({
+        title: "Three Laws of Thermodynamics",
+        subtitle: "Zeroth, First (ΔU = Q - W), Second (ΔS ≥ 0) & Third (T → 0 K) Laws",
+        sliders: [
+          { id: "temperature", label: "Gas Temperature (T)", min: 0, max: 700, step: 5, value: 300, unit: "K" },
+          { id: "heatRate", label: "Heat Transfer Rate (dQ/dt)", min: -40, max: 40, step: 2, value: 0, unit: "J/s" },
+          { id: "extPressure", label: "External Piston Load (P_ext)", min: 40, max: 250, step: 5, value: 101, unit: "kPa" },
+          { id: "moles", label: "Amount of Gas (n)", min: 0.5, max: 3.0, step: 0.25, value: 1.0, unit: "mol" }
+        ],
+        toggles: [
+          { id: "showPV", label: "P-V Indicator Diagram", checked: false },
+          { id: "showEnergyBars", label: "1st Law Energy Bars (Q = ΔU + W)", checked: false },
+          { id: "showEntropy", label: "2nd Law Entropy Meter (ΔS ≥ 0)", checked: false },
+          { id: "showVectors", label: "Molecular Velocity Vectors", checked: false }
+        ],
+        presets: [
+          {
+            label: "Isobaric Expansion (1st Law)",
+            values: { temperature: 300, heatRate: 20, extPressure: 101, moles: 1.0 }
+          },
+          {
+            label: "Isochoric Heating (Rigid: W = 0)",
+            values: { temperature: 200, heatRate: 30, extPressure: 220, moles: 1.0 }
+          },
+          {
+            label: "Carnot Engine Cycle (2nd Law)",
+            values: { temperature: 550, heatRate: 0, extPressure: 130, moles: 1.0 }
+          },
+          {
+            label: "Free Expansion (Irreversible ΔS)",
+            values: { temperature: 300, heatRate: 0, extPressure: 40, moles: 1.5 }
+          },
+          {
+            label: "Absolute Zero Freeze (3rd Law)",
+            values: { temperature: 2, heatRate: -30, extPressure: 101, moles: 1.0 }
+          }
+        ],
+        hud: ["temperature", "pressure", "volume", "heat_q", "work_w", "delta_u", "entropy_s"]
+      });
+
+      // 2. Setup Canvas
+      const canvas = document.createElement("canvas");
+      sim.canvasHost.appendChild(canvas);
+      const ctx = canvas.getContext("2d");
+
+      function syncSize() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = sim.width * dpr;
+        canvas.height = sim.height * dpr;
+        ctx.resetTransform?.();
+        ctx.scale(dpr, dpr);
+      }
+      syncSize();
+      sim.onResize(syncSize);
+
+      // 3. Thermodynamic State Variables
+      const state = {
+        time: 0,
+        // Thermal coordinates
+        T: 300,            // Kelvin
+        P: 101.3,          // kPa
+        V: 24.6,           // Liters
+        pistonHeight: 180, // Pixels above base
+        pistonVel: 0,      // Pixels/s
+        // Energy tracking (1st Law)
+        totalQ: 0,         // Joules (Heat added)
+        totalW: 0,         // Joules (Work done by gas)
+        initialU: 1.0 * CV_MOLAR * 300,
+        deltaU: 0,         // Joules (Internal energy change)
+        entropy: 0,        // J/K (Entropy change from reference)
+        // Molecular kinetic particles
+        particles: [],
+        pvHistory: []
+      };
+
+      // Initialize 60 Gas Particles
+      const NUM_PARTICLES = 60;
+      function initParticles() {
+        state.particles = [];
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+          const speed = Math.sqrt(state.T) * 0.45;
+          const angle = Math.random() * Math.PI * 2;
+          state.particles.push({
+            x: 20 + Math.random() * 200,
+            y: 20 + Math.random() * (state.pistonHeight - 40),
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            radius: 3.5
+          });
+        }
+      }
+      initParticles();
+
+      // Reset Callback
+      sim.onReset(() => {
+        state.time = 0;
+        state.T = Number(sim.get("temperature")) || 300;
+        state.pistonHeight = 180;
+        state.pistonVel = 0;
+        state.totalQ = 0;
+        state.totalW = 0;
+        state.initialU = (Number(sim.get("moles")) || 1.0) * CV_MOLAR * state.T;
+        state.deltaU = 0;
+        state.entropy = 0;
+        state.pvHistory = [];
+        initParticles();
+      });
+
+      // Synchronize state dynamically with control changes and presets
+      sim.onControlChange((id, val) => {
+        if (id === "temperature") {
+          state.T = Math.max(0.5, Number(val));
+          const vScale = Math.sqrt(state.T) * 0.45;
+          for (let i = 0; i < state.particles.length; i++) {
+            const p = state.particles[i];
+            const angle = Math.atan2(p.vy, p.vx) || (Math.random() * Math.PI * 2);
+            p.vx = Math.cos(angle) * vScale;
+            p.vy = Math.sin(angle) * vScale;
+          }
+          const moles = Math.max(0.2, Number(sim.get("moles")) || 1.0);
+          state.initialU = moles * CV_MOLAR * state.T;
+          state.deltaU = 0;
+        } else if (id === "moles" || id === "particles") {
+          const moles = id === "moles" ? Math.max(0.2, Number(val)) : Math.max(0.2, Number(val) / 60);
+          const targetCount = Math.max(10, Math.round(moles * 60));
+          const speed = Math.sqrt(state.T) * 0.45;
+          while (state.particles.length < targetCount) {
+            const angle = Math.random() * Math.PI * 2;
+            state.particles.push({
+              x: 20 + Math.random() * 200,
+              y: 20 + Math.random() * Math.max(20, state.pistonHeight - 40),
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              radius: 3.5
+            });
+          }
+          while (state.particles.length > targetCount) {
+            state.particles.pop();
+          }
+          state.initialU = moles * CV_MOLAR * state.T;
+        } else if (id === "volume") {
+          state.V = Math.max(4.0, Number(val));
+          const moles = Math.max(0.2, Number(sim.get("moles")) || 1.0);
+          state.pistonHeight = Math.max(40, Math.min(290, (state.V / (24.6 * (moles / 1.0))) * 180));
+        }
+        render();
+      });
+
+      // Viewport zoom & pan synchronization
+      sim.onZoomChange((scale, panOffset) => {
+        // Canvas inherits parent sim.canvasHost CSS translate & scale transform smoothly
+        render();
+      });
+
+      // 4. Fixed-Timestep Physics Loop (1000Hz Sub-Stepping)
+      let lastTimestamp = performance.now();
+      const SUB_STEPS = 16;
+      const FIXED_DT = 0.001; // 1 ms micro-step
+
+      function physicsUpdate(dt) {
+        const moles = Math.max(0.2, Number(sim.get("moles")) || 1.0);
+        const heatRate = Number(sim.get("heatRate")) || 0;
+        const P_ext = Math.max(20, Number(sim.get("extPressure")) || 101.3);
+
+        const subDt = dt / SUB_STEPS;
+
+        for (let step = 0; step < SUB_STEPS; step++) {
+          // 1. Heat injection (dQ = heatRate * dt)
+          const dQ = heatRate * subDt;
+          state.totalQ += dQ;
+
+          // 2. Temperature variation based on heat addition
+          const totalCv = moles * CV_MOLAR;
+          state.T = Math.max(0.5, state.T + (dQ / totalCv));
+
+          // 3. Ideal Gas Equation of State: P = n R T / V
+          // Volume is proportional to piston height: V = (pistonHeight / 180) * 24.6 L
+          state.V = Math.max(4.0, (state.pistonHeight / 180) * 24.6 * (moles / 1.0));
+          state.P = (moles * R_GAS * state.T) / state.V;
+
+          // 4. Piston Dynamic Equation of Motion
+          // Net force = (P_gas - P_ext) * Area - Friction - Damping
+          const netPressureForce = (state.P - P_ext) * 0.45;
+          const dampingForce = -state.pistonVel * 8.0;
+          const accel = (netPressureForce + dampingForce) / 2.0;
+
+          state.pistonVel += accel * subDt;
+          const oldHeight = state.pistonHeight;
+          state.pistonHeight = Math.max(40, Math.min(290, state.pistonHeight + state.pistonVel * subDt));
+
+          // 5. Work Done by Gas: dW = P * dV
+          const deltaH = state.pistonHeight - oldHeight;
+          const dV = (deltaH / 180) * 24.6 * (moles / 1.0);
+          const dW = state.P * dV;
+          state.totalW += dW;
+
+          // 6. First Law: ΔU = Q - W
+          const currentU = moles * CV_MOLAR * state.T;
+          state.deltaU = currentU - state.initialU;
+
+          // 7. Second Law: Entropy Calculation (Ideal Gas S = n Cv ln(T/T0) + n R ln(V/V0))
+          state.entropy = (moles * CV_MOLAR * Math.log(state.T / T0)) + (moles * R_GAS * Math.log(state.V / V0));
+
+          // 8. Molecular Kinetic Micro-Motion
+          // Thermal velocity rms speed proportional to sqrt(T)
+          const vScale = Math.sqrt(state.T) * 0.055;
+          const chamberWidth = 240;
+          const chamberTop = state.pistonHeight;
+
+          for (let i = 0; i < state.particles.length; i++) {
+            const p = state.particles[i];
+            p.x += p.vx * subDt * 60;
+            p.y += p.vy * subDt * 60;
+
+            // Elastic collisions with chamber side walls
+            if (p.x < 10) { p.x = 10; p.vx = Math.abs(p.vx); }
+            if (p.x > chamberWidth - 10) { p.x = chamberWidth - 10; p.vx = -Math.abs(p.vx); }
+
+            // Collision with moving piston head
+            if (p.y > chamberTop - 12) {
+              p.y = chamberTop - 12;
+              p.vy = -Math.abs(p.vy) + (state.pistonVel * 0.01);
+            }
+
+            // Collision with thermal reservoir base (bottom)
+            if (p.y < 10) {
+              p.y = 10;
+              // Thermalize velocity with reservoir temperature
+              const ang = Math.PI * 0.15 + Math.random() * Math.PI * 0.7;
+              const speed = (0.7 + Math.random() * 0.6) * vScale * 8.0;
+              p.vx = Math.cos(ang) * speed * (Math.random() > 0.5 ? 1 : -1);
+              p.vy = Math.sin(ang) * speed;
+            }
+
+            // Third Law cryogenic behavior: If T near absolute zero, velocity decays to 0
+            if (state.T < 10) {
+              p.vx *= 0.95;
+              p.vy *= 0.95;
+            }
+          }
+
+          state.time += subDt;
+        }
+
+        // Record P-V point periodically (capped buffer to prevent leaks)
+        if (state.pvHistory.length === 0 || Math.abs(state.pvHistory[state.pvHistory.length - 1].v - state.V) > 0.15) {
+          state.pvHistory.push({ v: state.V, p: state.P, t: state.T });
+          if (state.pvHistory.length > 250) state.pvHistory.shift();
+        }
+      }
+
+      // 5. Canvas Renderer
+      function render() {
+        const theme = sim.theme || { canvasBg: "#18181b", text: "#fcfcfc", accent: "#38bdf8", subtitle: "#a1a1aa" };
+        const w = sim.width;
+        const h = sim.height;
+
+        ctx.fillStyle = theme.canvasBg;
+        ctx.fillRect(0, 0, w, h);
+
+        const chamberLeft = 50;
+        const chamberBottom = h - 70;
+        const chamberW = 240;
+        const pistonY = chamberBottom - state.pistonHeight;
+
+        // A. Draw Heat Base / Thermal Reservoir (Zeroth/First Law Interface)
+        const heatRate = Number(sim.get("heatRate")) || 0;
+        if (heatRate > 0) {
+          ctx.fillStyle = "rgba(239, 68, 68, 0.4)";
+          ctx.fillRect(chamberLeft - 10, chamberBottom, chamberW + 20, 24);
+          ctx.fillStyle = "#ef4444";
+          ctx.font = "bold 11px sans-serif";
+          ctx.fillText("🔥 HEAT SOURCE (+dQ)", chamberLeft + 45, chamberBottom + 16);
+        } else if (heatRate < 0) {
+          ctx.fillStyle = "rgba(56, 189, 248, 0.35)";
+          ctx.fillRect(chamberLeft - 10, chamberBottom, chamberW + 20, 24);
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "bold 11px sans-serif";
+          ctx.fillText("❄️ COLD RESERVOIR (-dQ)", chamberLeft + 40, chamberBottom + 16);
+        } else {
+          ctx.fillStyle = "rgba(161, 161, 170, 0.2)";
+          ctx.fillRect(chamberLeft - 10, chamberBottom, chamberW + 20, 18);
+          ctx.fillStyle = theme.subtitle;
+          ctx.font = "10px sans-serif";
+          ctx.fillText("ADIABATIC / EQUILIBRIUM BASE", chamberLeft + 35, chamberBottom + 13);
+        }
+
+        // B. Draw Gas Chamber Cylinder Walls
+        ctx.strokeStyle = theme.text;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        // Left wall
+        ctx.moveTo(chamberLeft, chamberBottom - 300);
+        ctx.lineTo(chamberLeft, chamberBottom);
+        // Bottom base
+        ctx.lineTo(chamberLeft + chamberW, chamberBottom);
+        // Right wall
+        ctx.lineTo(chamberLeft + chamberW, chamberBottom - 300);
+        ctx.stroke();
+
+        // C. Draw Gas Chamber Interior Tint (Temperature-responsive)
+        const tempRatio = Math.min(1, Math.max(0, (state.T - 50) / 600));
+        const rColor = Math.round(56 + tempRatio * 180);
+        const bColor = Math.round(248 - tempRatio * 200);
+        ctx.fillStyle = `rgba(${rColor}, 80, ${bColor}, 0.12)`;
+        ctx.fillRect(chamberLeft, pistonY, chamberW, chamberBottom - pistonY);
+
+        // D. Draw Kinetic Gas Molecules (3rd Law Freeze & 2nd Law Diffusion)
+        const showVectors = Boolean(sim.get("showVectors"));
+        for (let i = 0; i < state.particles.length; i++) {
+          const p = state.particles[i];
+          const px = chamberLeft + p.x;
+          const py = chamberBottom - p.y;
+
+          if (py < pistonY || py > chamberBottom) continue;
+
+          // Particle color based on kinetic energy
+          const speedSq = p.vx * p.vx + p.vy * p.vy;
+          const isHot = speedSq > 8;
+          ctx.fillStyle = isHot ? "#f87171" : "#38bdf8";
+
+          ctx.beginPath();
+          ctx.arc(px, py, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Velocity vectors overlay
+          if (showVectors && speedSq > 0.05) {
+            ctx.strokeStyle = isHot ? "rgba(248, 113, 113, 0.8)" : "rgba(56, 189, 248, 0.8)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + p.vx * 3.5, py - p.vy * 3.5);
+            ctx.stroke();
+          }
+        }
+
+        // E. Draw Movable Piston & External Weights
+        ctx.fillStyle = "rgba(113, 113, 122, 0.9)";
+        ctx.strokeStyle = theme.text;
+        ctx.lineWidth = 2;
+        ctx.fillRect(chamberLeft + 2, pistonY - 14, chamberW - 4, 14);
+        ctx.strokeRect(chamberLeft + 2, pistonY - 14, chamberW - 4, 14);
+
+        // Piston Rod
+        ctx.fillStyle = "rgba(161, 161, 170, 0.8)";
+        ctx.fillRect(chamberLeft + (chamberW / 2) - 8, pistonY - 90, 16, 76);
+
+        // Piston Load (Weights proportional to P_ext)
+        const P_ext = Number(sim.get("extPressure")) || 101.3;
+        const weightWidth = Math.min(100, (P_ext / 250) * 100);
+        ctx.fillStyle = "#fbbf24";
+        ctx.fillRect(chamberLeft + (chamberW / 2) - (weightWidth / 2), pistonY - 110, weightWidth, 20);
+        ctx.strokeStyle = "#b45309";
+        ctx.strokeRect(chamberLeft + (chamberW / 2) - (weightWidth / 2), pistonY - 110, weightWidth, 20);
+        ctx.fillStyle = "#000000";
+        ctx.font = "bold 9px monospace";
+        ctx.fillText(`P_ext: ${P_ext.toFixed(0)} kPa`, chamberLeft + (chamberW / 2) - 34, pistonY - 96);
+
+        // F. Overlay: P-V Indicator Diagram (Second Law & Work Calculation)
+        if (Boolean(sim.get("showPV")) && w > 650) {
+          const plotX = chamberLeft + chamberW + 50;
+          const plotY = 40;
+          const plotW = Math.min(280, w - plotX - 30);
+          const plotH = 180;
+
+          ctx.fillStyle = "rgba(24, 24, 27, 0.85)";
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.lineWidth = 1;
+          ctx.fillRect(plotX, plotY, plotW, plotH);
+          ctx.strokeRect(plotX, plotY, plotW, plotH);
+
+          // Grid & Labels
+          ctx.fillStyle = theme.accent;
+          ctx.font = "bold 10px monospace";
+          ctx.fillText("P-V INDICATOR DIAGRAM", plotX + 10, plotY + 16);
+          ctx.fillStyle = theme.subtitle;
+          ctx.font = "9px monospace";
+          ctx.fillText("P (kPa)", plotX + 10, plotY + 32);
+          ctx.fillText("V (L) →", plotX + plotW - 45, plotY + plotH - 6);
+
+          // Plot trace
+          if (state.pvHistory.length > 2) {
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let i = 0; i < state.pvHistory.length; i++) {
+              const pt = state.pvHistory[i];
+              // Scale V (0 to 60 L) -> X, P (0 to 300 kPa) -> Y
+              const gx = plotX + 25 + (pt.v / 55) * (plotW - 40);
+              const gy = plotY + plotH - 20 - (pt.p / 320) * (plotH - 45);
+              if (i === 0) ctx.moveTo(gx, gy);
+              else ctx.lineTo(gx, gy);
+            }
+            ctx.stroke();
+
+            // Current State Point
+            const curPt = state.pvHistory[state.pvHistory.length - 1];
+            const curX = plotX + 25 + (curPt.v / 55) * (plotW - 40);
+            const curY = plotY + plotH - 20 - (curPt.p / 320) * (plotH - 45);
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // G. Overlay: 1st Law Energy Bars (Q = ΔU + W)
+        if (Boolean(sim.get("showEnergyBars")) && w > 580) {
+          const barX = chamberLeft + chamberW + 50;
+          const barY = Boolean(sim.get("showPV")) ? 250 : 60;
+          const barW = Math.min(260, w - barX - 30);
+
+          ctx.fillStyle = "rgba(24, 24, 27, 0.85)";
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.fillRect(barX, barY, barW, 110);
+          ctx.strokeRect(barX, barY, barW, 110);
+
+          ctx.fillStyle = "#00ff88";
+          ctx.font = "bold 10px monospace";
+          ctx.fillText("1ST LAW: Q = ΔU + W", barX + 10, barY + 16);
+
+          // Q Bar
+          ctx.fillStyle = "#ef4444";
+          const qWidth = Math.max(0, Math.min(180, (Math.abs(state.totalQ) / 800) * 180));
+          ctx.fillRect(barX + 45, barY + 28, qWidth, 14);
+          ctx.fillStyle = theme.text;
+          ctx.font = "9px monospace";
+          ctx.fillText(`Q: ${state.totalQ.toFixed(1)} J`, barX + 50 + qWidth, barY + 39);
+
+          // ΔU Bar
+          ctx.fillStyle = "#38bdf8";
+          const uWidth = Math.max(0, Math.min(180, (Math.abs(state.deltaU) / 800) * 180));
+          ctx.fillRect(barX + 45, barY + 52, uWidth, 14);
+          ctx.fillStyle = theme.text;
+          ctx.fillText(`ΔU: ${state.deltaU.toFixed(1)} J`, barX + 50 + uWidth, barY + 63);
+
+          // W Bar
+          ctx.fillStyle = "#fbbf24";
+          const wWidth = Math.max(0, Math.min(180, (Math.abs(state.totalW) / 800) * 180));
+          ctx.fillRect(barX + 45, barY + 76, wWidth, 14);
+          ctx.fillStyle = theme.text;
+          ctx.fillText(`W: ${state.totalW.toFixed(1)} J`, barX + 50 + wWidth, barY + 87);
+        }
+
+        // H. Overlay: 2nd Law Entropy Gauge
+        if (Boolean(sim.get("showEntropy")) && w > 480) {
+          const sX = chamberLeft;
+          const sY = 25;
+          ctx.fillStyle = "rgba(24, 24, 27, 0.85)";
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.fillRect(sX, sY, 240, 48);
+          ctx.strokeRect(sX, sY, 240, 48);
+
+          ctx.fillStyle = "#a855f7";
+          ctx.font = "bold 10px monospace";
+          ctx.fillText("2ND LAW ENTROPY (ΔS ≥ 0)", sX + 10, sY + 16);
+
+          const entropyVal = state.entropy;
+          const sBarWidth = Math.max(0, Math.min(200, (entropyVal + 2) * 40));
+          ctx.fillStyle = entropyVal >= 0 ? "#a855f7" : "#ef4444";
+          ctx.fillRect(sX + 10, sY + 24, sBarWidth, 12);
+
+          ctx.fillStyle = theme.text;
+          ctx.font = "9px monospace";
+          ctx.fillText(`ΔS = ${entropyVal >= 0 ? "+" : ""}${entropyVal.toFixed(3)} J/K`, sX + 115, sY + 34);
+        }
+      }
+
+      // 6. Animation Frame Loop
+      function tick(timestamp) {
+        const dt = Math.min(0.04, (timestamp - lastTimestamp) / 1000);
+        lastTimestamp = timestamp;
+
+        if (sim.isRunning) {
+          physicsUpdate(dt);
+        }
+
+        // Real-Time HUD Telemetry Update
+        sim.setHud({
+          temperature: `${state.T.toFixed(1)} K`,
+          pressure: `${state.P.toFixed(1)} kPa`,
+          volume: `${state.V.toFixed(1)} L`,
+          heat_q: `${state.totalQ.toFixed(1)} J`,
+          work_w: `${state.totalW.toFixed(1)} J`,
+          delta_u: `${state.deltaU.toFixed(1)} J`,
+          entropy_s: `${state.entropy.toFixed(3)} J/K`
+        });
+
+        render();
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

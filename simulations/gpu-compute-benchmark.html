@@ -122,22 +122,23 @@
     .controls-panel::-webkit-scrollbar-thumb { background: var(--adw-stepper-bg); border-radius: 0px; }
     .controls-panel::-webkit-scrollbar-thumb:hover { background: var(--adw-btn-sec-hover); }
 
-    /* GTK4 RESIZABLE PANE SPLITTER */
+    /* GTK4 RESIZABLE PANE SPLITTER (24px Touch Target with 2px GTK4 Visual Line) */
     .adw-pane-splitter {
-      width: 6px; flex: 0 0 6px; height: 100%; cursor: col-resize;
+      width: 24px; flex: 0 0 24px; margin: 0 -11px; height: 100%; cursor: col-resize;
       position: relative; display: flex; align-items: center; justify-content: center;
       user-select: none; touch-action: none; z-index: 20;
-      border-radius: 0px; transition: background-color 0.15s ease;
+      border-radius: 0px !important; transition: background-color 0.15s ease;
     }
     .adw-pane-splitter:hover, .adw-pane-splitter.dragging {
       background-color: var(--adw-accent-badge-bg);
     }
     .adw-pane-splitter::after {
-      content: ""; width: 2px; height: 32px; border-radius: 0px;
+      content: ""; width: 2px; height: 36px; border-radius: 0px !important;
       background-color: var(--adw-axis-color); transition: background-color 0.15s ease, height 0.15s ease;
+      pointer-events: none;
     }
     .adw-pane-splitter:hover::after, .adw-pane-splitter.dragging::after {
-      background-color: var(--adw-accent-color); height: 48px;
+      background-color: var(--adw-accent-color); height: 56px;
     }
 
     /* HEADERBAR */
@@ -836,7 +837,9 @@
       splitter.addEventListener('pointermove', (e) => {
         if (!isResizing) return;
         const containerRect = document.querySelector('.sim-layout').getBoundingClientRect();
-        const newWidth = Math.max(200, Math.min(500, e.clientX - containerRect.left - 3));
+        const minWidth = 180;
+        const maxWidth = Math.max(containerRect.width - 200, 500);
+        const newWidth = Math.max(minWidth, Math.min(maxWidth, e.clientX - containerRect.left - 3));
         controlsPanel.style.width = newWidth + 'px';
         controlsPanel.style.minWidth = newWidth + 'px';
         controlsPanel.style.maxWidth = newWidth + 'px';
@@ -856,10 +859,12 @@
       splitter.addEventListener('pointercancel', stopResize);
 
       splitter.addEventListener('dblclick', () => {
-        controlsPanel.style.width = '270px';
-        controlsPanel.style.minWidth = '270px';
-        controlsPanel.style.maxWidth = '270px';
-        controlsPanel.style.flex = '0 0 270px';
+        const containerRect = document.querySelector('.sim-layout').getBoundingClientRect();
+        const halfWidth = Math.round(containerRect.width * 0.5);
+        controlsPanel.style.width = halfWidth + 'px';
+        controlsPanel.style.minWidth = halfWidth + 'px';
+        controlsPanel.style.maxWidth = halfWidth + 'px';
+        controlsPanel.style.flex = `0 0 ${halfWidth}px`;
       });
     }
 
